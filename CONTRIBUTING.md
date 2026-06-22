@@ -31,8 +31,8 @@ pnpm install          # runs `prepare`, which builds the Tailwind CSS bundle
 pnpm dev              # wrangler dev with local KV simulation
 ```
 
-You need Node.js 20+ and pnpm. No Cloudflare account is required for local
-development; `pnpm dev` simulates KV locally.
+You need Node.js 22+ (wrangler 4.x requires it) and pnpm 11+. No Cloudflare
+account is required for local development; `pnpm dev` simulates KV locally.
 
 ## Before you open a pull request
 

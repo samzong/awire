@@ -36,7 +36,9 @@ jobs:
       - name: Setup Node.js
         uses: actions/setup-node@v4
         with:
-          node-version: 20
+          # wrangler 4.x requires node >= 22 (it imports node:sqlite).
+          # Keep this in sync with README prerequisites.
+          node-version: 22
 
       - name: Install
         run: pnpm install --frozen-lockfile

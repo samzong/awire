@@ -21,8 +21,8 @@ chat bots. Pure KV storage, an HTMX admin panel, no build step.
 
 ### 1. Prerequisites
 
-- Node.js 20+
-- pnpm (`npm i -g pnpm`)
+- Node.js 22+ (wrangler 4.x requires it)
+- pnpm 11+ (`npm i -g pnpm`)
 - A Cloudflare account (`wrangler login`)
 - A Feishu custom bot
 
