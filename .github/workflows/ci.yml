@@ -44,6 +44,12 @@ jobs:
         run: pnpm install --frozen-lockfile
         # `prepare` runs here and rebuilds src/panel/generated-css.ts
 
+      - name: Generate Worker types
+        run: pnpm types
+        # worker-configuration.d.ts is gitignored (it is produced by
+        # `wrangler types` from wrangler.jsonc bindings). tsconfig.json
+        # references it, so it must exist before typecheck.
+
       - name: Typecheck
         run: pnpm typecheck
 
