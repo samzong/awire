@@ -1,4 +1,12 @@
-# pnpm settings (v11+ reads this file instead of the package.json pnpm field)
-onlyBuiltDependencies:
-  - esbuild
-  - workerd
+# pnpm settings (v11+ reads this file instead of the package.json pnpm field).
+#
+# pnpm v10+ does not run dependency build scripts by default, and v11 fails
+# `pnpm install` with ERR_PNPM_IGNORED_BUILDS in CI when unapproved scripts
+# are detected. These three are all transitive deps of wrangler:
+#   - esbuild: the bundler wrangler uses to build the worker
+#   - workerd: the local runtime for `wrangler dev`
+#   - sharp:   miniflare image tooling
+allowBuilds:
+  esbuild: true
+  workerd: true
+  sharp: true
