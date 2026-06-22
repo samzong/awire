@@ -1,0 +1,11 @@
+# Copy to .dev.vars and fill in. Used by `wrangler dev` for local secrets.
+# Never commit .dev.vars itself.
+
+# Bearer token for the admin panel API. The browser stores this after login.
+# Generate one: pnpm gen:secret
+PANEL_TOKEN=replace-with-a-strong-random-token
+
+# Non-guessable path segment that hides the admin panel URL.
+# The panel lives at https://<worker>/<PANEL_PATH>
+# Generate one: pnpm gen:secret --path
+PANEL_PATH=_panel_replace_me

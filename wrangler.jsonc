@@ -1,0 +1,21 @@
+{
+  "$schema": "node_modules/wrangler/config-schema.json",
+  "name": "awire",
+  "main": "src/index.ts",
+  "compatibility_date": "2026-06-01",
+  "compatibility_flags": ["nodejs_compat"],
+  "observability": {
+    "enabled": true,
+    "head_sampling_rate": 1
+  },
+  "kv_namespaces": [
+    {
+      "binding": "CONFIG_KV",
+      "id": "<RUN: wrangler kv namespace create awire-config, then paste the id>"
+    },
+    {
+      "binding": "DEDUP_KV",
+      "id": "<RUN: wrangler kv namespace create awire-dedup, then paste the id>"
+    }
+  ]
+}

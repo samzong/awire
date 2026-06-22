@@ -1,0 +1,53 @@
+name: Feature request
+description: Suggest a new event, channel, or behavior.
+labels: ["enhancement", "needs-triage"]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Describe the problem you are trying to solve before jumping to the
+        solution. The maintainer prefers a small set of well-justified
+        features over a long roadmap.
+
+  - type: textarea
+    id: problem
+    attributes:
+      label: The problem
+      description: What are you trying to do that awire does not let you do today?
+    validations:
+      required: true
+
+  - type: textarea
+    id: solution
+    attributes:
+      label: The shape of a solution
+      description: |
+        What would the ideal behavior look like? You do not have to propose
+        an implementation, but concrete examples (sample card, sample config,
+        sample URL) help a lot.
+    validations:
+      required: true
+
+  - type: dropdown
+    id: area
+    attributes:
+      label: Which area?
+      options:
+        - New GitHub event renderer
+        - New delivery channel (Slack, Discord, etc.)
+        - Panel UX
+        - Routing / filtering
+        - Performance / scaling
+        - Other
+    validations:
+      required: true
+
+  - type: checkboxes
+    id: checks
+    attributes:
+      label: Before submitting
+      options:
+        - label: I checked `docs/pinged-comparison.md` and open issues for a duplicate.
+          required: true
+        - label: This is not a request for multi-user auth or a SPA rewrite (both are V2).
+          required: true

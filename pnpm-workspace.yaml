@@ -1,0 +1,4 @@
+# pnpm settings (v11+ reads this file instead of the package.json pnpm field)
+onlyBuiltDependencies:
+  - esbuild
+  - workerd

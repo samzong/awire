@@ -1,0 +1,47 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+
+permissions:
+  contents: read
+
+jobs:
+  verify:
+    name: typecheck & dry-run deploy
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup pnpm
+        uses: pnpm/action-setup@v4
+        with:
+          version: 9
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: pnpm
+
+      - name: Install
+        run: pnpm install --frozen-lockfile
+        # `prepare` runs here and rebuilds src/panel/generated-css.ts
+
+      - name: Typecheck
+        run: pnpm typecheck
+
+      - name: Verify generated CSS builds cleanly
+        run: pnpm build:css
+        # src/panel/generated-css.ts is gitignored — it is rebuilt by the
+        # `prepare` step during install and by every dev/deploy script. This
+        # step just confirms the build is reproducible from source.
+
+      - name: Dry-run deploy
+        run: pnpm deploy:dry
+        # --dry-run never contacts the Cloudflare API for real. No credentials
+        # are passed, so this job is structurally incapable of deploying.

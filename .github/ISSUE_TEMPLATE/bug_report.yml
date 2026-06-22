@@ -1,0 +1,83 @@
+name: Bug report
+description: Report something that is broken or behaves incorrectly.
+labels: ["bug", "needs-triage"]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Thanks for taking the time to file a bug. A clear reproducer is the
+        fastest path to a fix. If you are not sure whether the behavior is
+        intentional, check `docs/pinged-comparison.md` and the "Limits &
+        trade-offs" section of the README first.
+
+  - type: textarea
+    id: summary
+    attributes:
+      label: What happened?
+      description: A short description of the broken behavior.
+    validations:
+      required: true
+
+  - type: textarea
+    id: expected
+    attributes:
+      label: What did you expect?
+      description: What you thought would happen instead.
+    validations:
+      required: true
+
+  - type: textarea
+    id: repro
+    attributes:
+      label: Steps to reproduce
+      description: |
+        The smallest set of steps that triggers it. If you can reproduce with
+        `pnpm test:webhook`, paste the exact command and event name.
+      placeholder: |
+        1. Configured repo X with channel Y, events ["issues.opened"]
+        2. Opened an issue on X
+        3. ...
+    validations:
+      required: true
+
+  - type: dropdown
+    id: area
+    attributes:
+      label: Which area is affected?
+      options:
+        - Webhook delivery (GitHub → awire)
+        - Feishu delivery (awire → Feishu)
+        - Admin panel (UI/UX)
+        - Event rendering (card content)
+        - Authentication / security
+        - Deploy / local dev tooling
+        - Other
+    validations:
+      required: true
+
+  - type: input
+    id: event
+    attributes:
+      label: GitHub event + action (if relevant)
+      placeholder: e.g. pull_request.closed (merged)
+
+  - type: textarea
+    id: logs
+    attributes:
+      label: Worker logs
+      description: |
+        Paste the structured JSON log line(s) from Cloudflare's observability
+        dashboard. Redact any repo names or URLs you cannot share.
+        **Do not paste panel tokens, webhook secrets, or Feishu URLs.**
+      render: shell
+
+  - type: textarea
+    id: env
+    attributes:
+      label: Environment
+      value: |
+        - awire version / commit:
+        - Self-hosted or hosted:
+        - Browser (if panel issue):
+    validations:
+      required: true
