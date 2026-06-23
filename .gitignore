@@ -4,6 +4,7 @@ node_modules/
 # Cloudflare / Wrangler
 .wrangler/
 .local/
+wrangler.local.jsonc
 
 # Build output
 dist/
