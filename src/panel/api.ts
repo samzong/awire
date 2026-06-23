@@ -22,7 +22,7 @@ import { sendCard } from "../feishu.ts";
 import { renderCardText } from "../render/shared.ts";
 import type { ChannelConfig, Env, RepoConfig } from "../types.ts";
 import { renderChannelsFragment, renderChannelForm, renderTestResult, type ChannelUsage } from "./fragments/channels.ts";
-import { renderReposFragment, renderRepoForm } from "./fragments/repos.ts";
+import { normalizeEventKeys, renderReposFragment, renderRepoForm } from "./fragments/repos.ts";
 
 // ---------------------------------------------------------------------------
 // Helpers
@@ -208,8 +208,7 @@ export async function apiRepoCreate(env: Env, panelPath: string, req: Request): 
   const channel = await getChannel(env.CONFIG_KV, channel_id);
   if (!channel) return errorCard("Selected channel does not exist");
 
-  const eventValues = formAll(form, "events");
-  const events = eventValues.includes("*") ? ["*"] : eventValues;
+  const events = normalizeEventKeys(formAll(form, "events"));
 
   const repo: RepoConfig = {
     full_name: full_name.toLowerCase(),
@@ -233,8 +232,7 @@ export async function apiRepoUpdate(env: Env, panelPath: string, req: Request, f
   const channel = await getChannel(env.CONFIG_KV, channel_id);
   if (!channel) return errorCard("Selected channel does not exist");
 
-  const eventValues = formAll(form, "events");
-  const events = eventValues.includes("*") ? ["*"] : eventValues;
+  const events = normalizeEventKeys(formAll(form, "events"));
 
   const updated: RepoConfig = {
     ...existing,

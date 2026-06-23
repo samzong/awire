@@ -8,39 +8,73 @@
 import type { ChannelConfig, RepoConfig } from "../../types.ts";
 import { escapeHtml, emptyState, pageHeader, primaryButton, toast } from "./helpers.ts";
 
+type EventOption = { key: string; label: string };
+
 /** Logical event groupings shown in the matrix UI. */
-const EVENT_GROUPS: { label: string; events: { key: string; label: string }[] }[] = [
+const EVENT_GROUPS: { label: string; events: EventOption[] }[] = [
   {
-    label: "Issues & PRs",
+    label: "Pull requests",
     events: [
-      { key: "issues", label: "Issues" },
-      { key: "pull_request", label: "Pull requests" },
-      { key: "issue_comment", label: "Comments" },
-      { key: "pull_request_review", label: "PR reviews" },
-      { key: "pull_request_review_comment", label: "PR review comments" },
+      { key: "pull_request.opened", label: "Opened" },
+      { key: "pull_request.closed", label: "Closed / merged" },
+      { key: "pull_request.reopened", label: "Reopened" },
+      { key: "pull_request.ready_for_review", label: "Ready for review" },
+      { key: "pull_request.converted_to_draft", label: "Converted to draft" },
+      { key: "pull_request.review_requested", label: "Review requested" },
+      { key: "pull_request.review_request_removed", label: "Review request removed" },
+      { key: "pull_request.assigned", label: "Assigned" },
+      { key: "pull_request.unassigned", label: "Unassigned" },
+      { key: "pull_request.labeled", label: "Labeled" },
+      { key: "pull_request.unlabeled", label: "Unlabeled" },
+    ],
+  },
+  {
+    label: "Issues",
+    events: [
+      { key: "issues.opened", label: "Opened" },
+      { key: "issues.closed", label: "Closed" },
+      { key: "issues.reopened", label: "Reopened" },
+      { key: "issues.assigned", label: "Assigned" },
+      { key: "issues.unassigned", label: "Unassigned" },
+      { key: "issues.labeled", label: "Labeled" },
+      { key: "issues.unlabeled", label: "Unlabeled" },
+      { key: "issues.edited", label: "Edited" },
+      { key: "issues.deleted", label: "Deleted" },
+      { key: "issues.transferred", label: "Transferred" },
+    ],
+  },
+  {
+    label: "Comments & reviews",
+    events: [
+      { key: "issue_comment.created", label: "Issue / PR comment created" },
+      { key: "pull_request_review.submitted", label: "PR review submitted" },
+      { key: "pull_request_review_comment.created", label: "PR review comment created" },
     ],
   },
   {
     label: "Code",
     events: [
       { key: "push", label: "Pushes" },
-      { key: "release", label: "Releases" },
+      { key: "release.published", label: "Release published" },
+      { key: "release.prereleased", label: "Release prereleased" },
+      { key: "release.edited", label: "Release edited" },
     ],
   },
   {
     label: "CI / Deploy",
     events: [
-      { key: "workflow_run", label: "Workflow runs" },
-      { key: "check_run", label: "Check runs" },
-      { key: "deployment_status", label: "Deployments" },
+      { key: "workflow_run.completed", label: "Workflow completed" },
+      { key: "check_run.completed", label: "Check completed" },
+      { key: "check_run.rerequested", label: "Check re-requested" },
+      { key: "deployment_status.created", label: "Deployment status created" },
     ],
   },
   {
     label: "Activity",
     events: [
-      { key: "star", label: "Stars" },
+      { key: "star.created", label: "Starred" },
       { key: "fork", label: "Forks" },
-      { key: "watch", label: "Watches" },
+      { key: "watch.started", label: "Started watching" },
     ],
   },
 ];
@@ -48,6 +82,24 @@ const EVENT_GROUPS: { label: string; events: { key: string; label: string }[] }[
 /** Flatten the matrix into the events array stored in RepoConfig. */
 export function allEventKeys(): string[] {
   return EVENT_GROUPS.flatMap((g) => g.events.map((e) => e.key));
+}
+
+const EVENT_KEY_SET = new Set(allEventKeys());
+
+export function normalizeEventKeys(values: string[]): string[] {
+  if (values.includes("*")) return ["*"];
+
+  const out: string[] = [];
+  for (const value of values) {
+    const keys = EVENT_KEY_SET.has(value)
+      ? [value]
+      : allEventKeys().filter((key) => key.startsWith(`${value}.`));
+
+    for (const key of keys) {
+      if (!out.includes(key)) out.push(key);
+    }
+  }
+  return out;
 }
 
 export function renderReposFragment(opts: {
@@ -115,7 +167,7 @@ function repoRow(
     ? "All events"
     : repo.events.length === 0
       ? "No events"
-      : `${repo.events.length} event${repo.events.length === 1 ? "" : "s"}`;
+      : `${repo.events.length} rule${repo.events.length === 1 ? "" : "s"}`;
 
   return `
     <tr class="border-b border-ink-850 hover:bg-ink-850/50 transition-colors">
@@ -172,7 +224,7 @@ export function renderRepoForm(opts: {
     <div>
       <div class="text-[11px] uppercase tracking-wide text-ink-400 mb-1.5">${escapeHtml(group.label)}</div>
       <div class="grid grid-cols-2 gap-1.5">
-        ${group.events.map((e) => eventCheckbox(e.key, e.label, selected.has(e.key) || selected.has("*"))).join("")}
+        ${group.events.map((e) => eventCheckbox(e.key, e.label, eventChecked(e.key, selected))).join("")}
       </div>
     </div>
   `).join("");
@@ -249,6 +301,10 @@ function eventCheckbox(key: string, label: string, checked: boolean): string {
       ${escapeHtml(label)}
     </label>
   `;
+}
+
+function eventChecked(key: string, selected: Set<string>): boolean {
+  return selected.has("*") || selected.has(key) || selected.has(key.split(".")[0]!);
 }
 
 /** Toast for successful mutations. */
