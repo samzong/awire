@@ -39,16 +39,17 @@ export function renderPanelShell(opts: PanelShellOptions): string {
 <body class="min-h-screen text-ink-200 antialiased">
   <header class="border-b border-ink-800 bg-ink-900">
     <div class="max-w-5xl mx-auto px-8 py-4 grid grid-cols-[1fr_auto_1fr] items-center gap-4">
-      <div class="flex items-center gap-2.5 min-w-0">
-        <div class="w-8 h-8 rounded-lg bg-gradient-to-br from-accent-500 to-accent-300 flex items-center justify-center font-bold text-white text-sm shrink-0">aw</div>
-        <div class="text-ink-100 font-semibold leading-tight">awire</div>
-      </div>
+      <div class="text-ink-100 font-semibold leading-tight min-w-0">awire</div>
       <nav class="justify-self-center inline-flex items-center gap-1 rounded-lg border border-ink-800 bg-ink-850 p-1 shadow-card">
         ${navItem(panelPath, "dashboard", "📊", "Dashboard", activeNav)}
         ${navItem(panelPath, "repos", "📦", "Repos", activeNav)}
         ${navItem(panelPath, "channels", "📢", "Channels", activeNav)}
       </nav>
-      <div class="justify-self-end flex items-center text-[11px] text-ink-400">
+      <div class="justify-self-end flex items-center gap-1 text-[11px] text-ink-400">
+        <a href="https://github.com/samzong/awire" target="_blank" rel="noreferrer"
+           class="text-xs font-medium text-ink-400 hover:text-ink-100 px-2.5 py-1.5 rounded-md hover:bg-white transition-colors">
+          GitHub
+        </a>
         <details class="relative">
           <summary class="list-none cursor-pointer text-xs font-medium text-ink-400 hover:text-red-600 px-2.5 py-1.5 rounded-md hover:bg-red-50 transition-colors [&::-webkit-details-marker]:hidden">
             Logout
@@ -157,7 +158,6 @@ export function renderLoginPage(panelPath: string): string {
 <body class="min-h-screen flex items-center justify-center text-ink-200">
   <div class="w-full max-w-sm mx-auto px-6">
     <div class="text-center mb-8">
-      <div class="w-12 h-12 rounded-xl bg-gradient-to-br from-accent-500 to-accent-300 flex items-center justify-center font-bold text-white text-lg mx-auto mb-3 shadow-lg">aw</div>
       <h1 class="text-2xl font-semibold text-ink-100">awire</h1>
       <p class="text-sm text-ink-400 mt-1">Sign in with your panel token</p>
     </div>
