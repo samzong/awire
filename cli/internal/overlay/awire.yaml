@@ -1,0 +1,23 @@
+commands:
+  create-channel:
+    aliases: [create]
+  delete-channel:
+    aliases: [delete]
+  get-channel:
+    aliases: [get]
+  list-channels:
+    aliases: [list]
+  test-channel:
+    aliases: [test]
+  update-channel:
+    aliases: [update]
+  create-repo:
+    aliases: [create]
+  delete-repo:
+    aliases: [delete]
+  get-repo:
+    aliases: [get]
+  list-repos:
+    aliases: [list]
+  update-repo:
+    aliases: [update]

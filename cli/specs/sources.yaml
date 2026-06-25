@@ -1,0 +1,7 @@
+sources:
+  awire:
+    local_path: ../..
+    backend: openapi3
+    openapi3:
+      files:
+        - openapi/awire.yaml

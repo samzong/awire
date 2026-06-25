@@ -1,0 +1,12 @@
+cli:
+  name: awire
+  short: awire management CLI
+
+auth:
+  validate:
+    method: GET
+    path: /api/v1/whoami
+    display:
+      username_field: service
+      fallback_field: service
+
