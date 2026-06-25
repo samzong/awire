@@ -1,0 +1,598 @@
+openapi: 3.0.3
+info:
+  title: awire JSON Management API
+  version: 0.1.0
+  description: JSON API for managing awire Feishu channels and repository routes.
+security:
+  - bearerAuth: []
+components:
+  securitySchemes:
+    bearerAuth:
+      type: http
+      scheme: bearer
+      bearerFormat: PANEL_TOKEN
+  schemas:
+    WhoamiResponse:
+      type: object
+      properties:
+        ok:
+          type: boolean
+          example: true
+        service:
+          type: string
+          example: awire
+      required:
+        - ok
+        - service
+    ErrorResponse:
+      type: object
+      properties:
+        error:
+          type: string
+          example: invalid request
+        repos:
+          type: array
+          items:
+            type: string
+      required:
+        - error
+    ChannelsResponse:
+      type: object
+      properties:
+        channels:
+          type: array
+          items:
+            $ref: "#/components/schemas/Channel"
+      required:
+        - channels
+    Channel:
+      type: object
+      properties:
+        id:
+          type: string
+          example: 2b2ed599-697c-4e83-93f4-92f18f5254e9
+        name:
+          type: string
+          example: Feishu alerts
+        webhook_url:
+          type: string
+          format: uri
+          example: https://open.feishu.cn/open-apis/bot/v2/hook/...
+        sign_secret:
+          type: string
+        created_at:
+          type: string
+          format: date-time
+          example: 2026-06-25T12:00:00.000Z
+        updated_at:
+          type: string
+          format: date-time
+          example: 2026-06-25T12:00:00.000Z
+      required:
+        - id
+        - name
+        - webhook_url
+        - created_at
+        - updated_at
+    ChannelResponse:
+      type: object
+      properties:
+        channel:
+          $ref: "#/components/schemas/Channel"
+      required:
+        - channel
+    ChannelCreate:
+      type: object
+      properties:
+        name:
+          type: string
+          minLength: 1
+          example: Feishu alerts
+        webhook_url:
+          type: string
+          format: uri
+          example: https://open.feishu.cn/open-apis/bot/v2/hook/...
+        sign_secret:
+          type: string
+          minLength: 1
+      required:
+        - name
+        - webhook_url
+    ChannelUpdate:
+      type: object
+      properties:
+        name:
+          type: string
+          minLength: 1
+        webhook_url:
+          type: string
+          format: uri
+        sign_secret:
+          type: string
+          nullable: true
+          minLength: 1
+    OkResponse:
+      type: object
+      properties:
+        ok:
+          type: boolean
+          example: true
+      required:
+        - ok
+    ChannelTestResponse:
+      type: object
+      properties:
+        ok:
+          type: boolean
+        message:
+          type: string
+        statusCode:
+          type: number
+          nullable: true
+      required:
+        - ok
+        - message
+        - statusCode
+    ReposResponse:
+      type: object
+      properties:
+        repos:
+          type: array
+          items:
+            $ref: "#/components/schemas/Repo"
+      required:
+        - repos
+    Repo:
+      type: object
+      properties:
+        full_name:
+          type: string
+          example: octocat/Hello-World
+        channel_id:
+          type: string
+          example: 2b2ed599-697c-4e83-93f4-92f18f5254e9
+        webhook_secret:
+          type: string
+        events:
+          type: array
+          items:
+            type: string
+          example:
+            - pull_request.opened
+        created_at:
+          type: string
+          format: date-time
+          example: 2026-06-25T12:00:00.000Z
+        updated_at:
+          type: string
+          format: date-time
+          example: 2026-06-25T12:00:00.000Z
+      required:
+        - full_name
+        - channel_id
+        - events
+        - created_at
+        - updated_at
+    RepoResponse:
+      type: object
+      properties:
+        repo:
+          $ref: "#/components/schemas/Repo"
+      required:
+        - repo
+    RepoCreate:
+      type: object
+      properties:
+        full_name:
+          type: string
+          pattern: ^[A-Za-z0-9._-]+\/[A-Za-z0-9._-]+$
+          example: octocat/Hello-World
+        channel_id:
+          type: string
+          minLength: 1
+          example: 2b2ed599-697c-4e83-93f4-92f18f5254e9
+        webhook_secret:
+          type: string
+          minLength: 1
+        events:
+          type: array
+          items:
+            type: string
+            minLength: 1
+          example:
+            - pull_request
+      required:
+        - full_name
+        - channel_id
+    RepoUpdate:
+      type: object
+      properties:
+        channel_id:
+          type: string
+          minLength: 1
+        webhook_secret:
+          type: string
+          nullable: true
+          minLength: 1
+        events:
+          type: array
+          items:
+            type: string
+            minLength: 1
+          example:
+            - issues.opened
+  parameters: {}
+paths:
+  /api/v1/whoami:
+    get:
+      tags:
+        - System
+      operationId: getWhoami
+      summary: Check the current awire API token.
+      responses:
+        "200":
+          description: Authenticated token status.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/WhoamiResponse"
+        "401":
+          description: Unauthorized.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+  /api/v1/channels:
+    get:
+      tags:
+        - Channels
+      operationId: listChannels
+      summary: List delivery channels.
+      responses:
+        "200":
+          description: Delivery channel list.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ChannelsResponse"
+        "401":
+          description: Unauthorized.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+    post:
+      tags:
+        - Channels
+      operationId: createChannel
+      summary: Create a delivery channel.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/ChannelCreate"
+      responses:
+        "201":
+          description: Created delivery channel.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ChannelResponse"
+        "400":
+          description: Bad request.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+        "401":
+          description: Unauthorized.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+  /api/v1/channels/{id}:
+    get:
+      tags:
+        - Channels
+      operationId: getChannel
+      summary: Get one delivery channel.
+      parameters:
+        - schema:
+            type: string
+            example: 2b2ed599-697c-4e83-93f4-92f18f5254e9
+          required: true
+          name: id
+          in: path
+      responses:
+        "200":
+          description: Delivery channel.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ChannelResponse"
+        "401":
+          description: Unauthorized.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+        "404":
+          description: Not found.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+    put:
+      tags:
+        - Channels
+      operationId: updateChannel
+      summary: Update a delivery channel.
+      parameters:
+        - schema:
+            type: string
+            example: 2b2ed599-697c-4e83-93f4-92f18f5254e9
+          required: true
+          name: id
+          in: path
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/ChannelUpdate"
+      responses:
+        "200":
+          description: Updated delivery channel.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ChannelResponse"
+        "400":
+          description: Bad request.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+        "401":
+          description: Unauthorized.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+        "404":
+          description: Not found.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+    delete:
+      tags:
+        - Channels
+      operationId: deleteChannel
+      summary: Delete an unused delivery channel.
+      parameters:
+        - schema:
+            type: string
+            example: 2b2ed599-697c-4e83-93f4-92f18f5254e9
+          required: true
+          name: id
+          in: path
+      responses:
+        "200":
+          description: Deleted.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/OkResponse"
+        "401":
+          description: Unauthorized.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+        "404":
+          description: Not found.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+        "409":
+          description: Conflict.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+  /api/v1/channels/{id}/test:
+    post:
+      tags:
+        - Channels
+      operationId: testChannel
+      summary: Send a test card through a delivery channel.
+      parameters:
+        - schema:
+            type: string
+            example: 2b2ed599-697c-4e83-93f4-92f18f5254e9
+          required: true
+          name: id
+          in: path
+      responses:
+        "200":
+          description: Feishu send result.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ChannelTestResponse"
+        "401":
+          description: Unauthorized.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+        "404":
+          description: Not found.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+  /api/v1/repos:
+    get:
+      tags:
+        - Repos
+      operationId: listRepos
+      summary: List repository routes.
+      responses:
+        "200":
+          description: Repository route list.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ReposResponse"
+        "401":
+          description: Unauthorized.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+    post:
+      tags:
+        - Repos
+      operationId: createRepo
+      summary: Create a repository route.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/RepoCreate"
+      responses:
+        "201":
+          description: Created repository route.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/RepoResponse"
+        "400":
+          description: Bad request.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+        "401":
+          description: Unauthorized.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+  /api/v1/repos/{full_name}:
+    get:
+      tags:
+        - Repos
+      operationId: getRepo
+      summary: Get one repository route.
+      parameters:
+        - schema:
+            type: string
+            description: Repository full name. Slashes must be URL-encoded in raw HTTP paths.
+            example: octocat/Hello-World
+          required: true
+          description: Repository full name. Slashes must be URL-encoded in raw HTTP paths.
+          name: full_name
+          in: path
+      responses:
+        "200":
+          description: Repository route.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/RepoResponse"
+        "401":
+          description: Unauthorized.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+        "404":
+          description: Not found.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+    put:
+      tags:
+        - Repos
+      operationId: updateRepo
+      summary: Update a repository route.
+      parameters:
+        - schema:
+            type: string
+            description: Repository full name. Slashes must be URL-encoded in raw HTTP paths.
+            example: octocat/Hello-World
+          required: true
+          description: Repository full name. Slashes must be URL-encoded in raw HTTP paths.
+          name: full_name
+          in: path
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/RepoUpdate"
+      responses:
+        "200":
+          description: Updated repository route.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/RepoResponse"
+        "400":
+          description: Bad request.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+        "401":
+          description: Unauthorized.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+        "404":
+          description: Not found.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+    delete:
+      tags:
+        - Repos
+      operationId: deleteRepo
+      summary: Delete a repository route.
+      parameters:
+        - schema:
+            type: string
+            description: Repository full name. Slashes must be URL-encoded in raw HTTP paths.
+            example: octocat/Hello-World
+          required: true
+          description: Repository full name. Slashes must be URL-encoded in raw HTTP paths.
+          name: full_name
+          in: path
+      responses:
+        "200":
+          description: Deleted.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/OkResponse"
+        "401":
+          description: Unauthorized.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+        "404":
+          description: Not found.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"

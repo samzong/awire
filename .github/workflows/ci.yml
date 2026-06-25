@@ -53,6 +53,9 @@ jobs:
       - name: Typecheck
         run: pnpm typecheck
 
+      - name: Verify generated OpenAPI is current
+        run: pnpm check:openapi
+
       - name: Verify generated CSS builds cleanly
         run: pnpm build:css
         # src/panel/generated-css.ts is gitignored — it is rebuilt by the
