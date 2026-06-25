@@ -32,13 +32,23 @@
     "deploy:dry": "node scripts/build-panel-css.mjs && wrangler deploy --dry-run",
     "types": "wrangler types",
     "typecheck": "tsc --noEmit",
+    "gen:openapi": "tsx scripts/gen-openapi.ts",
+    "check:openapi": "tsx scripts/gen-openapi.ts --check",
     "gen:secret": "node scripts/gen-secret.mjs",
+    "test:api": "node scripts/test-json-api.mjs",
     "test:webhook": "node scripts/test-webhook.mjs"
   },
   "devDependencies": {
     "@types/node": "^26.0.0",
     "tailwindcss": "3.4.17",
+    "tsx": "^4.22.4",
     "typescript": "^5.7.0",
-    "wrangler": "^4.100.0"
+    "wrangler": "^4.100.0",
+    "yaml": "^2.9.0"
+  },
+  "dependencies": {
+    "@hono/zod-openapi": "^1.4.0",
+    "hono": "^4.12.27",
+    "zod": "^4.4.3"
   }
 }

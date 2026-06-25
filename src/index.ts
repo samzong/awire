@@ -5,13 +5,14 @@
  *
  *   POST /hook/github            GitHub webhook (no auth — verified by HMAC)
  *   GET  /                       Health check (public)
+ *   *    /api/v1/*               JSON management API (Bearer token)
  *   GET  /<PANEL_PATH>           Panel shell (auth via Bearer token)
  *   GET  /<PANEL_PATH>/<page>    Panel pages (fragment swap)
  *   GET  /<PANEL_PATH>/fragments/*
  *   *    /<PANEL_PATH>/api/*
  *
- * Routing is hand-rolled (no framework) — surface area is small enough that
- * a switch on pathname segments is clearer than a router dependency.
+ * The management JSON API is mounted as a small Hono app so its route
+ * definitions can also generate the OpenAPI document used by Lathe.
  */
 
 import { checkAndMarkDelivery } from "./dedup.ts";
@@ -23,6 +24,7 @@ import { verifyGitHubSignature } from "./verify.ts";
 import { extractToken, buildSessionCookieHeader, verifyPanelToken } from "./panel/auth.ts";
 import { renderLoginPage, renderPanelShell, type NavKey } from "./panel/html.ts";
 import * as api from "./panel/api.ts";
+import { handleJsonApi } from "./json-api.ts";
 
 export default {
   async fetch(req: Request, env: Env): Promise<Response> {
@@ -43,6 +45,10 @@ export default {
       // -------------------------------------------------------------------
       if (path === "/hook/github" && method === "POST") {
         return await handleWebhook(req, env);
+      }
+
+      if (path === "/api/v1" || path.startsWith("/api/v1/")) {
+        return await handleJsonApi(req, env);
       }
 
       // -------------------------------------------------------------------
