@@ -1,23 +1,49 @@
 commands:
   create-channel:
-    aliases: [create]
+    use: create
   delete-channel:
-    aliases: [delete]
+    use: delete
+    notes:
+      - "Channel must have zero attached repos before deletion."
+    known_errors:
+      - status: 404
+        cause: "Channel id does not exist"
+      - status: 409
+        cause: "Channel still referenced by one or more repos (response includes repos[])"
+    example: |
+      awirectl channels delete --id 2b2ed599-697c-4e83-93f4-92f18f5254e9 -o json
   get-channel:
-    aliases: [get]
+    use: get
   list-channels:
-    aliases: [list]
+    use: list
   test-channel:
-    aliases: [test]
+    use: test
+    shortcuts:
+      - use: ping
+    params:
+      id:
+        flag: channel_id
+        required: true
+        help: "Delivery channel ID (UUID)"
+    example: |
+      awirectl channels test --channel_id 2b2ed599-697c-4e83-93f4-92f18f5254e9 -o json
+      awirectl ping --channel_id 2b2ed599-697c-4e83-93f4-92f18f5254e9 -o json
   update-channel:
-    aliases: [update]
+    use: update
   create-repo:
-    aliases: [create]
+    use: create
+    prerequisites:
+      - "Create a delivery channel first: awirectl channels create --set name=... --set webhook_url=..."
+    example: |
+      awirectl repos create \
+        --set full_name=octocat/Hello-World \
+        --set channel_id=2b2ed599-697c-4e83-93f4-92f18f5254e9 \
+        --set 'events=["pull_request.opened"]'
   delete-repo:
-    aliases: [delete]
+    use: delete
   get-repo:
-    aliases: [get]
+    use: get
   list-repos:
-    aliases: [list]
+    use: list
   update-repo:
-    aliases: [update]
+    use: update

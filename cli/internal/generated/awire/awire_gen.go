@@ -8,7 +8,7 @@ import (
 	"github.com/lathe-cli/lathe/pkg/runtime"
 )
 
-const generatedSchemaVersion = 6
+const generatedSchemaVersion = 7
 
 func Mount(root *cobra.Command) error {
 	if err := runtime.AssertSchema(generatedSchemaVersion); err != nil {
@@ -28,8 +28,7 @@ func MountFlat(root *cobra.Command) error {
 var Specs = []runtime.CommandSpec{
 	{
 		Group:       "Channels",
-		Use:         "create-channel",
-		Aliases:     []string{"create"},
+		Use:         "create",
 		Short:       "Create a delivery channel.",
 		OperationID: "createChannel",
 		Method:      "POST",
@@ -41,10 +40,15 @@ var Specs = []runtime.CommandSpec{
 		},
 	},
 	{
-		Group:       "Channels",
-		Use:         "delete-channel",
-		Aliases:     []string{"delete"},
-		Short:       "Delete an unused delivery channel.",
+		Group:   "Channels",
+		Use:     "delete",
+		Short:   "Delete an unused delivery channel.",
+		Example: "awirectl channels delete --id 2b2ed599-697c-4e83-93f4-92f18f5254e9 -o json\n",
+		Notes:   []string{"Channel must have zero attached repos before deletion."},
+		KnownErrors: []runtime.KnownError{
+			{Status: 404, Cause: "Channel id does not exist"},
+			{Status: 409, Cause: "Channel still referenced by one or more repos (response includes repos[])"},
+		},
 		OperationID: "deleteChannel",
 		Method:      "DELETE",
 		PathTpl:     "/api/v1/channels/{id}",
@@ -55,8 +59,7 @@ var Specs = []runtime.CommandSpec{
 	},
 	{
 		Group:       "Channels",
-		Use:         "get-channel",
-		Aliases:     []string{"get"},
+		Use:         "get",
 		Short:       "Get one delivery channel.",
 		OperationID: "getChannel",
 		Method:      "GET",
@@ -68,8 +71,7 @@ var Specs = []runtime.CommandSpec{
 	},
 	{
 		Group:       "Channels",
-		Use:         "list-channels",
-		Aliases:     []string{"list"},
+		Use:         "list",
 		Short:       "List delivery channels.",
 		OperationID: "listChannels",
 		Method:      "GET",
@@ -78,22 +80,24 @@ var Specs = []runtime.CommandSpec{
 		},
 	},
 	{
-		Group:       "Channels",
-		Use:         "test-channel",
-		Aliases:     []string{"test"},
+		Group: "Channels",
+		Use:   "test",
+		Shortcuts: []runtime.CommandShortcut{
+			{Use: "ping"},
+		},
 		Short:       "Send a test card through a delivery channel.",
+		Example:     "awirectl channels test --channel_id 2b2ed599-697c-4e83-93f4-92f18f5254e9 -o json\nawirectl ping --channel_id 2b2ed599-697c-4e83-93f4-92f18f5254e9 -o json\n",
 		OperationID: "testChannel",
 		Method:      "POST",
 		PathTpl:     "/api/v1/channels/{id}/test",
 		Params: []runtime.ParamSpec{
-			{Name: "id", Flag: "id", In: "path", GoType: "string", Help: "id (path, required)", Required: true},
+			{Name: "id", Flag: "channel_id", In: "path", GoType: "string", Help: "Delivery channel ID (UUID)", Required: true},
 		},
 		Output: runtime.OutputHints{ResponseMediaType: "application/json"},
 	},
 	{
 		Group:       "Channels",
-		Use:         "update-channel",
-		Aliases:     []string{"update"},
+		Use:         "update",
 		Short:       "Update a delivery channel.",
 		OperationID: "updateChannel",
 		Method:      "PUT",
@@ -109,13 +113,14 @@ var Specs = []runtime.CommandSpec{
 		Output: runtime.OutputHints{ResponseMediaType: "application/json"},
 	},
 	{
-		Group:       "Repos",
-		Use:         "create-repo",
-		Aliases:     []string{"create"},
-		Short:       "Create a repository route.",
-		OperationID: "createRepo",
-		Method:      "POST",
-		PathTpl:     "/api/v1/repos",
+		Group:         "Repos",
+		Use:           "create",
+		Short:         "Create a repository route.",
+		Example:       "awirectl repos create \\\n  --set full_name=octocat/Hello-World \\\n  --set channel_id=2b2ed599-697c-4e83-93f4-92f18f5254e9 \\\n  --set 'events=[\"pull_request.opened\"]'\n",
+		Prerequisites: []string{"Create a delivery channel first: awirectl channels create --set name=... --set webhook_url=..."},
+		OperationID:   "createRepo",
+		Method:        "POST",
+		PathTpl:       "/api/v1/repos",
 		RequestBody: &runtime.RequestBody{
 			Required:  true,
 			MediaType: "application/json",
@@ -124,8 +129,7 @@ var Specs = []runtime.CommandSpec{
 	},
 	{
 		Group:       "Repos",
-		Use:         "delete-repo",
-		Aliases:     []string{"delete"},
+		Use:         "delete",
 		Short:       "Delete a repository route.",
 		OperationID: "deleteRepo",
 		Method:      "DELETE",
@@ -137,8 +141,7 @@ var Specs = []runtime.CommandSpec{
 	},
 	{
 		Group:       "Repos",
-		Use:         "get-repo",
-		Aliases:     []string{"get"},
+		Use:         "get",
 		Short:       "Get one repository route.",
 		OperationID: "getRepo",
 		Method:      "GET",
@@ -150,8 +153,7 @@ var Specs = []runtime.CommandSpec{
 	},
 	{
 		Group:       "Repos",
-		Use:         "list-repos",
-		Aliases:     []string{"list"},
+		Use:         "list",
 		Short:       "List repository routes.",
 		OperationID: "listRepos",
 		Method:      "GET",
@@ -161,8 +163,7 @@ var Specs = []runtime.CommandSpec{
 	},
 	{
 		Group:       "Repos",
-		Use:         "update-repo",
-		Aliases:     []string{"update"},
+		Use:         "update",
 		Short:       "Update a repository route.",
 		OperationID: "updateRepo",
 		Method:      "PUT",

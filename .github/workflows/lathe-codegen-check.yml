@@ -1,0 +1,56 @@
+name: Lathe codegen check
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - "cli/specs/**"
+      - "cli/internal/overlay/**"
+      - "cli/internal/generated/**"
+      - "cli/skills/awirectl/**"
+      - "cli/cmd/awirectl/cli.yaml"
+      - "cli/go.mod"
+      - "cli/go.sum"
+      - "openapi/awire.yaml"
+      - ".github/workflows/lathe-codegen-check.yml"
+  pull_request:
+    branches: [main]
+    paths:
+      - "cli/specs/**"
+      - "cli/internal/overlay/**"
+      - "cli/internal/generated/**"
+      - "cli/skills/awirectl/**"
+      - "cli/cmd/awirectl/cli.yaml"
+      - "cli/go.mod"
+      - "cli/go.sum"
+      - "openapi/awire.yaml"
+      - ".github/workflows/lathe-codegen-check.yml"
+
+permissions:
+  contents: read
+
+jobs:
+  lathe-codegen:
+    name: lathe bootstrap drift check
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Go
+        uses: actions/setup-go@v5
+        with:
+          go-version-file: cli/go.mod
+          cache-dependency-path: cli/go.sum
+
+      - name: Regenerate awirectl from pinned lathe
+        run: |
+          cd cli
+          go run github.com/lathe-cli/lathe/cmd/lathe@v0.4.2-0.20260625103219-bcb7c1af3488 bootstrap \
+            -manifest cmd/awirectl/cli.yaml \
+            -overlay internal/overlay
+
+      - name: Assert generated code and skills are committed
+        run: |
+          cd cli
+          git diff --exit-code -- internal/generated/ skills/awirectl/

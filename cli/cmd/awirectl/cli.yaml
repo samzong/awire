@@ -10,3 +10,8 @@ auth:
       username_field: service
       fallback_field: service
 
+update:
+  github:
+    owner: samzong
+    repo: awire
+    asset: "awirectl_{{ .Version }}_{{ .OS }}_{{ .Arch }}.tar.gz"

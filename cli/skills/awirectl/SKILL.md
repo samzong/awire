@@ -24,6 +24,11 @@ Use this skill when a user asks you to operate `awirectl`, inspect its API comma
 - `awirectl commands schema --json`: catalog schema version for parser compatibility.
 - `awirectl search "<intent>" --json`: ranked candidate commands.
 
+## Maintenance Commands
+
+- `awirectl --version` or `awirectl -v`: print CLI build version.
+- `awirectl update`: update this CLI from configured GitHub Releases. Run only when the user explicitly asks to update `awirectl`; it may replace the current executable. Use `--yes` only when explicitly authorized.
+
 ## References
 
 - Read `references/catalog.md` for the command discovery protocol and catalog field meanings.

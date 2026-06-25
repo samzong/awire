@@ -13,6 +13,7 @@ Run `awirectl commands --json` to inspect the generated command catalog. Use `--
 Key fields:
 
 - `path`: command path to pass to `commands show` or execute after the CLI name.
+- `shortcuts`: root-level commands that execute the same operation with preset flag values.
 - `http`: HTTP method and path template.
 - `http.default_hostname`: optional source-level host selected after explicit `--hostname` and `$AWIRECTL_HOST`; when present it is used before the single-host fallback from `hosts.yml`.
 - `flags`: CLI flags, parameter location, type, required state, defaults, enum values, format, and help.
