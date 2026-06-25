@@ -68,6 +68,6 @@ Validate the generated CLI before publishing it:
 ```sh
 lathe bootstrap
 go mod tidy
-go build -o bin/awire ./cmd/awire
-bin/awire commands --json
+go build -o bin/awirectl ./cmd/awirectl
+bin/awirectl commands --json
 ```

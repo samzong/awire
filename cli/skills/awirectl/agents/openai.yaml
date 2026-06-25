@@ -1,0 +1,4 @@
+interface:
+  display_name: "awirectl CLI"
+  short_description: "Use the awirectl generated CLI"
+  default_prompt: "Use $awirectl to find and run the right awirectl command."
