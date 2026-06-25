@@ -26,6 +26,8 @@
   "main": "src/index.ts",
   "scripts": {
     "build:css": "node scripts/build-panel-css.mjs",
+    "build:cli": "cd cli && go build -o bin/awirectl ./cmd/awirectl",
+    "install:cli": "pnpm build:cli && mkdir -p \"$HOME/.local/bin\" && install -m 755 cli/bin/awirectl \"$HOME/.local/bin/awirectl\"",
     "prepare": "node scripts/build-panel-css.mjs",
     "dev": "node scripts/build-panel-css.mjs && wrangler dev",
     "deploy": "node scripts/build-panel-css.mjs && wrangler deploy",

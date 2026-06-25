@@ -1,6 +1,6 @@
 cli:
-  name: awire
-  short: awire management CLI
+  name: awirectl
+  short: awirectl management CLI
 
 auth:
   validate:

@@ -1,4 +1,0 @@
-interface:
-  display_name: "awire CLI"
-  short_description: "Use the awire generated CLI"
-  default_prompt: "Use $awire to find and run the right awire command."

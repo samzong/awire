@@ -4,17 +4,17 @@ Use the runtime catalog as the source of truth. Generated references are a fast 
 
 ## Search
 
-Run `awire search "<intent>" --json` to find candidate commands. Use `--limit` to control result count. Treat search output as candidates only.
+Run `awirectl search "<intent>" --json` to find candidate commands. Use `--limit` to control result count. Treat search output as candidates only.
 
 ## Full Catalog
 
-Run `awire commands --json` to inspect the generated command catalog. Use `--include-hidden` only when hidden commands are relevant.
+Run `awirectl commands --json` to inspect the generated command catalog. Use `--include-hidden` only when hidden commands are relevant.
 
 Key fields:
 
 - `path`: command path to pass to `commands show` or execute after the CLI name.
 - `http`: HTTP method and path template.
-- `http.default_hostname`: optional source-level host selected after explicit `--hostname` and `$AWIRE_HOST`; when present it is used before the single-host fallback from `hosts.yml`.
+- `http.default_hostname`: optional source-level host selected after explicit `--hostname` and `$AWIRECTL_HOST`; when present it is used before the single-host fallback from `hosts.yml`.
 - `flags`: CLI flags, parameter location, type, required state, defaults, enum values, format, and help.
 - `body`: request body requirement and media type.
 - `auth`: whether auth is required and which scopes are declared.
@@ -23,11 +23,11 @@ Key fields:
 
 ## Command Detail
 
-Run `awire commands show <path...> --json` before executing an unfamiliar command. This is the source of truth for flags, body, auth, HTTP path, and output hints.
+Run `awirectl commands show <path...> --json` before executing an unfamiliar command. This is the source of truth for flags, body, auth, HTTP path, and output hints.
 
 ## Schema
 
-Run `awire commands schema --json` to read the catalog schema version before parsing catalog JSON with durable tooling.
+Run `awirectl commands schema --json` to read the catalog schema version before parsing catalog JSON with durable tooling.
 
 ## Request Bodies
 
@@ -42,4 +42,4 @@ Use `-o json` for machine-readable command output. Other supported formats are `
 
 ## Auth
 
-If command detail returns `auth.required=true`, run `awire auth status --hostname <host>` before execution. Use `http.default_hostname` when present unless the user provides `--hostname` or `$AWIRE_HOST`; if no matching host is logged in, stop and ask the user to authenticate.
+If command detail returns `auth.required=true`, run `awirectl auth status --hostname <host>` before execution. Use `http.default_hostname` when present unless the user provides `--hostname` or `$AWIRECTL_HOST`; if no matching host is logged in, stop and ask the user to authenticate.
