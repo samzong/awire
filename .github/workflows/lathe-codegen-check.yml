@@ -46,7 +46,7 @@ jobs:
       - name: Regenerate awirectl from pinned lathe
         run: |
           cd cli
-          go run github.com/lathe-cli/lathe/cmd/lathe@v0.4.2-0.20260625103219-bcb7c1af3488 bootstrap \
+          go run github.com/lathe-cli/lathe/cmd/lathe@v0.4.3-0.20260626165232-7c63d8f7bff8 bootstrap \
             -manifest cmd/awirectl/cli.yaml \
             -overlay internal/overlay
 
