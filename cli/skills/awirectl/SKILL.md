@@ -40,3 +40,4 @@ Use this skill when a user asks you to operate `awirectl`, inspect its API comma
 - Do not execute directly from search results; confirm with `commands show` first.
 - Prefer `-o json` for machine-readable command output unless the user asks for human-readable output.
 - Use `--file`, `--set`, or `--set-str` for JSON request bodies according to `commands show` body requirements.
+- For sensitive flags, prefer safe modes from `flags[].input_modes`: `--<flag>-env`, `--<flag>-file`, or `--<flag>-stdin`.
