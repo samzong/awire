@@ -4,8 +4,9 @@ go 1.25.7
 
 require (
 	github.com/lathe-cli/lathe v0.4.3-0.20260626165232-7c63d8f7bff8
+	github.com/samzong/kitup/go v0.1.1
+	github.com/samzong/kitup/go-cobra v0.1.1
 	github.com/spf13/cobra v1.10.2
-	gopkg.in/yaml.v3 v3.0.1
 )
 
 require (
@@ -13,4 +14,5 @@ require (
 	github.com/spf13/pflag v1.0.9 // indirect
 	golang.org/x/sys v0.46.0 // indirect
 	golang.org/x/term v0.44.0 // indirect
+	gopkg.in/yaml.v3 v3.0.1 // indirect
 )
