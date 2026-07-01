@@ -46,8 +46,12 @@ wrangler kv namespace create awire-config
 wrangler kv namespace create awire-dedup
 ```
 
-Paste both returned `id` values into `wrangler.jsonc` (replace the `<RUN: …>`
-placeholders in the `kv_namespaces` block).
+Copy `wrangler.jsonc` to ignored local config, then paste both returned `id`
+values into `wrangler.local.jsonc`:
+
+```bash
+cp wrangler.jsonc wrangler.local.jsonc
+```
 
 ### 4. Generate and set secrets
 
@@ -272,9 +276,10 @@ Event filter semantics:
 |---|---|
 | GitHub shows webhook as "last delivery failed" with 401 | GitHub webhook secret does not match the repo's optional secret in awire |
 | No card in Feishu | Panel → Channels → Test. Verify sign_secret matches the bot's signature verification setting. |
+| No PR, issue, star, or fork card, and GitHub shows no matching delivery | GitHub webhook is not subscribed to that event. Enable the repo webhook event (`pull_request`, `issues`, `star`, or `fork`); awire can only filter events after GitHub sends them. |
 | Duplicate cards | Dedup window is 10 min. GitHub may still retry after that — increase if needed. |
 | Panel returns 401 | Session expired or token is invalid. Re-login at `/<PANEL_PATH>`. |
-| `wrangler deploy` fails on KV ids | Fill in real namespace ids in `wrangler.jsonc` (step 3 above). |
+| `wrangler deploy` fails on KV ids | Fill in real namespace ids in ignored `wrangler.local.jsonc` (step 3 above). |
 
 ---
 

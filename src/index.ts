@@ -79,72 +79,108 @@ export default {
 // ===========================================================================
 
 async function handleWebhook(req: Request, env: Env): Promise<Response> {
+  const event = req.headers.get("X-GitHub-Event") ?? "";
+  const deliveryId = req.headers.get("X-GitHub-Delivery");
   const rawBody = await req.arrayBuffer();
 
   const payload = parseWebhookPayload(rawBody, req.headers.get("content-type"));
   if (!payload) {
+    logWebhook("warn", "webhook_invalid_json", {
+      delivery: deliveryId,
+      event,
+      contentType: req.headers.get("content-type"),
+    });
     return json({ error: "invalid json" }, 400);
   }
 
-  const event = req.headers.get("X-GitHub-Event") ?? "";
   const action = typeof payload.action === "string" ? payload.action : undefined;
-  const deliveryId = req.headers.get("X-GitHub-Delivery");
   const repoFullName = payload.repository?.full_name ?? "";
+  const logFields = { delivery: deliveryId, event, action, repo: repoFullName };
+
+  logWebhook("info", "webhook_received", logFields);
 
   const route = await resolveRoute(env.CONFIG_KV, repoFullName);
   if (route?.webhook_secret) {
     const sig = req.headers.get("X-Hub-Signature-256");
     const verify = await verifyGitHubSignature(sig, rawBody, route.webhook_secret);
     if (!verify.ok) {
-      console.warn(JSON.stringify({ level: "warn", msg: "signature rejected", reason: verify.reason, repo: repoFullName }));
+      logWebhook("warn", "signature_rejected", { ...logFields, reason: verify.reason });
       return json({ error: "invalid signature" }, 401);
     }
   }
 
   const dedup = await checkAndMarkDelivery(env.DEDUP_KV, deliveryId);
   if (dedup.duplicate) {
+    logWebhook("info", "dedup_duplicate", logFields);
     return json({ ok: true, dedup: true });
   }
 
   if (event === "ping") {
-    if (route && shouldForward(route.events, "ping", undefined)) {
+    if (!route) {
+      logWebhook("info", "route_missing", logFields);
+    } else if (!shouldForward(route.events, "ping", undefined)) {
+      logWebhook("info", "event_filtered", { ...logFields, channel: route.channel.id });
+    } else {
       const card = renderEvent("ping", undefined, payload);
       if (card) {
-        await sendCard(route.channel.webhook_url, card, route.channel.sign_secret);
+        const result = await sendCard(route.channel.webhook_url, card, route.channel.sign_secret);
+        if (result.ok) {
+          logWebhook("info", "forwarded", { ...logFields, channel: route.channel.id });
+        } else {
+          logWebhook("error", "feishu_failed", {
+            ...logFields,
+            channel: route.channel.id,
+            httpStatus: result.httpStatus,
+            feishuCode: result.statusCode,
+            feishuMsg: result.message,
+          });
+        }
       }
     }
     return json({ ok: true });
   }
 
   if (!route) {
+    logWebhook("info", "route_missing", logFields);
     return json({ ok: true, ignored: "no route" });
   }
 
   if (!shouldForward(route.events, event, action)) {
+    logWebhook("info", "event_filtered", { ...logFields, channel: route.channel.id });
     return json({ ok: true, filtered: true });
   }
 
   const card = renderEvent(event, action, payload);
   if (!card) {
+    logWebhook("info", "renderer_dropped", { ...logFields, channel: route.channel.id });
     return json({ ok: true, dropped: "renderer" });
   }
 
   const result = await sendCard(route.channel.webhook_url, card, route.channel.sign_secret);
   if (!result.ok) {
-    console.error(JSON.stringify({
-      level: "error", msg: "feishu send failed",
-      delivery: deliveryId, event, action, repo: repoFullName,
+    logWebhook("error", "feishu_failed", {
+      ...logFields,
+      channel: route.channel.id,
       httpStatus: result.httpStatus, feishuCode: result.statusCode, feishuMsg: result.message,
-    }));
+    });
     return json({ error: "feishu", message: result.message }, 502);
   }
 
-  console.log(JSON.stringify({
-    level: "info", msg: "forwarded",
-    delivery: deliveryId, event, action, repo: repoFullName,
-    channel: route.channel.id,
-  }));
+  logWebhook("info", "forwarded", { ...logFields, channel: route.channel.id });
   return json({ ok: true });
+}
+
+function logWebhook(level: "info" | "warn" | "error", msg: string, fields: Record<string, unknown>): void {
+  const line = JSON.stringify({ level, msg, ...fields });
+  if (level === "error") {
+    console.error(line);
+    return;
+  }
+  if (level === "warn") {
+    console.warn(line);
+    return;
+  }
+  console.log(line);
 }
 
 function parseWebhookPayload(rawBody: ArrayBuffer, contentType: string | null): GitHubPayload | null {
