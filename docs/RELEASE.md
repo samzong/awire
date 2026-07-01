@@ -43,7 +43,7 @@ URL=http://localhost:8787 PANEL_TOKEN=<token> pnpm test:api
 7. Deploy with runtime vars preserved:
 
    ```sh
-   wrangler deploy --keep-vars
+   pnpm deploy
    ```
 
 ## Lathe source

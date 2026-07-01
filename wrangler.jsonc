@@ -6,16 +6,22 @@
   "compatibility_flags": ["nodejs_compat"],
   "observability": {
     "enabled": true,
-    "head_sampling_rate": 1
+    "head_sampling_rate": 1,
+    "logs": {
+      "enabled": true,
+      "invocation_logs": true,
+      "persist": true,
+      "head_sampling_rate": 1
+    }
   },
   "kv_namespaces": [
     {
       "binding": "CONFIG_KV",
-      "id": "<RUN: wrangler kv namespace create awire-config, then paste the id>"
+      "id": "<RUN: wrangler kv namespace create awire-config, then paste the id into wrangler.local.jsonc>"
     },
     {
       "binding": "DEDUP_KV",
-      "id": "<RUN: wrangler kv namespace create awire-dedup, then paste the id>"
+      "id": "<RUN: wrangler kv namespace create awire-dedup, then paste the id into wrangler.local.jsonc>"
     }
   ]
 }
