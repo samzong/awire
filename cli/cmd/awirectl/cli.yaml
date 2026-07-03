@@ -15,3 +15,6 @@ update:
     owner: samzong
     repo: awire
     asset: "awirectl_{{ .Version }}_{{ .OS }}_{{ .Arch }}.tar.gz"
+
+skill:
+  bundle: true

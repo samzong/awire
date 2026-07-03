@@ -3,11 +3,20 @@
 package generated
 
 import (
+	lathekitup "github.com/lathe-cli/kitup/go"
+	lathekitupcobra "github.com/lathe-cli/kitup/go-cobra"
+	latheruntime "github.com/lathe-cli/lathe/pkg/runtime"
 	awire "github.com/samzong/awire/cli/internal/generated/awire"
+	lathegeneratedskillbundle "github.com/samzong/awire/cli/internal/generated/skillbundle"
 	"github.com/spf13/cobra"
 )
 
-// MountModules mounts every module declared in sources.yaml under root.
+// Mount mounts every generated command and capability declared by codegen.
+func Mount(root *cobra.Command) error {
+	return MountModules(root)
+}
+
+// MountModules mounts every module and generated capability under root.
 // The import list above is the single source of truth for which modules
 // are compiled into this binary. main.go wires this call after
 // app.NewApp() so the framework package never imports downstream code.
@@ -15,5 +24,10 @@ func MountModules(root *cobra.Command) error {
 	if err := awire.MountFlat(root); err != nil {
 		return err
 	}
+	latheruntime.AttachCapability(root, latheruntime.CapabilitySkillBundle)
+	root.AddCommand(lathekitupcobra.NewSkillCommand(lathekitupcobra.Options{
+		AppID:  root.Name(),
+		Bundle: lathekitup.FSBundle(lathegeneratedskillbundle.FS, lathegeneratedskillbundle.Root),
+	}))
 	return nil
 }

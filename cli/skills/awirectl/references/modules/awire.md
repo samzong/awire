@@ -149,4 +149,3 @@ awirectl repos create \
 - Body: none
 - Flags: none
 - Output: response media `application/json`
-

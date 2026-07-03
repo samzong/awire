@@ -8,14 +8,13 @@ import (
 	"github.com/lathe-cli/lathe/pkg/runtime"
 )
 
-const generatedSchemaVersion = 7
+const generatedSchemaVersion = 9
 
 func Mount(root *cobra.Command) error {
 	if err := runtime.AssertSchema(generatedSchemaVersion); err != nil {
 		return err
 	}
-	runtime.Build(root, "awire", Specs)
-	return nil
+	return runtime.Build(root, "awire", Specs)
 }
 
 func MountFlat(root *cobra.Command) error {
@@ -36,7 +35,7 @@ var Specs = []runtime.CommandSpec{
 		RequestBody: &runtime.RequestBody{
 			Required:  true,
 			MediaType: "application/json",
-			Schema:    &runtime.SchemaSpec{Type: "object", Properties: map[string]*runtime.SchemaSpec{"name": &runtime.SchemaSpec{Type: "string"}, "sign_secret": &runtime.SchemaSpec{Type: "string"}, "webhook_url": &runtime.SchemaSpec{Type: "string"}}},
+			Schema:    &runtime.SchemaSpec{Type: "object", Properties: map[string]*runtime.SchemaSpec{"name": &runtime.SchemaSpec{Type: "string"}, "sign_secret": &runtime.SchemaSpec{Type: "string"}, "webhook_url": &runtime.SchemaSpec{Type: "string"}}, Required: []string{"name", "webhook_url"}},
 		},
 	},
 	{
@@ -76,8 +75,7 @@ var Specs = []runtime.CommandSpec{
 		OperationID: "listChannels",
 		Method:      "GET",
 		PathTpl:     "/api/v1/channels",
-		Output: runtime.OutputHints{ListPath: "channels", DefaultColumns: []string{"name", "id", "created_at", "sign_secret", "updated_at", "webhook_url"}, ResponseMediaType: "application/json",
-		},
+		Output:      runtime.OutputHints{ListPath: "channels", DefaultColumns: []string{"name", "id", "created_at", "sign_secret", "updated_at", "webhook_url"}, ResponseMediaType: "application/json"},
 	},
 	{
 		Group: "Channels",
@@ -124,7 +122,7 @@ var Specs = []runtime.CommandSpec{
 		RequestBody: &runtime.RequestBody{
 			Required:  true,
 			MediaType: "application/json",
-			Schema:    &runtime.SchemaSpec{Type: "object", Properties: map[string]*runtime.SchemaSpec{"channel_id": &runtime.SchemaSpec{Type: "string"}, "events": &runtime.SchemaSpec{Type: "array", Items: &runtime.SchemaSpec{Type: "string"}}, "full_name": &runtime.SchemaSpec{Type: "string"}, "webhook_secret": &runtime.SchemaSpec{Type: "string"}}},
+			Schema:    &runtime.SchemaSpec{Type: "object", Properties: map[string]*runtime.SchemaSpec{"channel_id": &runtime.SchemaSpec{Type: "string"}, "events": &runtime.SchemaSpec{Type: "array", Items: &runtime.SchemaSpec{Type: "string"}}, "full_name": &runtime.SchemaSpec{Type: "string"}, "webhook_secret": &runtime.SchemaSpec{Type: "string"}}, Required: []string{"full_name", "channel_id"}},
 		},
 	},
 	{
@@ -158,8 +156,7 @@ var Specs = []runtime.CommandSpec{
 		OperationID: "listRepos",
 		Method:      "GET",
 		PathTpl:     "/api/v1/repos",
-		Output: runtime.OutputHints{ListPath: "repos", DefaultColumns: []string{"channel_id", "created_at", "full_name", "updated_at", "webhook_secret"}, ResponseMediaType: "application/json",
-		},
+		Output:      runtime.OutputHints{ListPath: "repos", DefaultColumns: []string{"channel_id", "created_at", "full_name", "updated_at", "webhook_secret"}, ResponseMediaType: "application/json"},
 	},
 	{
 		Group:       "Repos",
