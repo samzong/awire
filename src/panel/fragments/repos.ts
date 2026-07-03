@@ -117,7 +117,7 @@ export function renderReposFragment(opts: {
 
   if (channels.length === 0) {
     return pageHeader("Repos", "Sources to forward.", "") +
-      emptyState("⚠️", "Add a channel first", "You need at least one Feishu channel before configuring repos.");
+      emptyState("⚠️", "Add a channel first", "You need at least one delivery channel before configuring repos.");
   }
 
   const channelMap = new Map(channels.map((c) => [c.id, c]));

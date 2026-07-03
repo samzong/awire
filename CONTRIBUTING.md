@@ -58,19 +58,19 @@ account is required for local development; `pnpm dev` simulates KV locally.
    # terminal 1
    pnpm dev
    # terminal 2
-   URL=http://localhost:8787 SECRET=anything pnpm test:webhook
+   pnpm test:webhook
    ```
 
-   The `SECRET` here is the per-repo webhook secret; for local dev any value
-   works as long as it is consistent with the route you are hitting. The
-   sample fixtures are regenerated on first run under `scripts/samples/`
-   (gitignored).
+   The test command reads `.dev.vars`. `SECRET` is the per-repo webhook secret;
+   for local dev any value works as long as it is consistent with the route you
+   are hitting. The sample fixtures are regenerated on first run under
+   `scripts/samples/` (gitignored).
 
 4. **No generated files committed.** `src/panel/generated-css.ts` and
    `worker-configuration.d.ts` are build outputs. The `prepare` script
    regenerates the former on `pnpm install`. Do not commit either.
 
-5. **No secrets in diffs.** `.dev.vars` is gitignored. Real Feishu webhook
+5. **No secrets in diffs.** `.dev.vars` is gitignored. Real delivery target
    URLs, GitHub tokens, and panel tokens must not appear in code, comments,
    or test fixtures. If you add a sample payload to `test-webhook.mjs`, use
    `octocat/Hello-World` style fixtures only.

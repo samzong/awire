@@ -8,8 +8,8 @@ need to change something non-trivial.
 
 awire is a single Cloudflare Worker. GitHub posts a webhook to `/hook/github`;
 the worker verifies the signature, deduplicates by delivery id, looks up the
-repo's routing config in KV, filters by event, renders a Feishu card, and
-posts it to the target channel's webhook. Configuration lives in a KV
+repo's routing config in KV, filters by event, renders an internal card, and
+posts it to the target delivery channel. Configuration lives in a KV
 namespace; dedup markers live in a second KV namespace. An HTMX panel at a
 non-guessable path lets the operator manage channels and repos. There is no
 database, no frontend build, no message queue — those are V2.
@@ -42,10 +42,10 @@ POST /hook/github
   │                          specialized template OR generic fallback
   │                          null → 200 { dropped: "renderer" }
   │
-  └─ 7. send              POST to channel.webhook_url
-                             optional Feishu signing (key = `${ts}\n${secret}`,
-                             message = empty string — the #1 footgun)
-                             inspect body.StatusCode === 0 for real success
+  └─ 7. send              Feishu/Slack webhook or Telegram sendMessage
+                             via provider-specific channel config
+                             Feishu signing: key = `${ts}\n${secret}`,
+                             message = empty string
                              failure → 502 (GitHub retries)
 ```
 
@@ -140,6 +140,7 @@ gets a login page, not the dashboard.
 | `src/verify.ts` | GitHub HMAC-SHA256 signature verification |
 | `src/dedup.ts` | Delivery dedup (DEDUP_KV, atomic check-and-mark) |
 | `src/config.ts` | KV config load/store; index pattern; event filter |
+| `src/delivery.ts` | Delivery target dispatch; Slack and Telegram payload conversion |
 | `src/feishu.ts` | Feishu webhook client + custom-bot signing |
 | `src/render/*.ts` | Pure payload → FeishuCard renderers, one per event domain |
 | `src/panel/html.ts` | Panel shell + login page HTML |
@@ -166,7 +167,6 @@ not implement them.
 - **GitHub OAuth multi-user.** V1 is single-user by design; the panel auth
   layer is isolated so V2 can swap in OAuth without touching the webhook
   path.
-- **New sources (GitLab, Jira) and sinks (Slack, Discord).** The directory
-  structure (`render/`, `feishu.ts`) is named for the current adapters but
-  is not architecturally bound to them; a source/sink abstraction is the
-  first step of V2.
+- **New sources (GitLab, Jira) and richer sinks.** The directory structure is
+  not architecturally bound to GitHub input or chat-style output; a broader
+  source/sink abstraction is the first step of V2.

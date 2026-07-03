@@ -24,20 +24,43 @@
  *   "<delivery_id>"     -> "1"  (TTL 600s)
  */
 
-export interface ChannelConfig {
+export type ChannelKind = "feishu" | "slack" | "telegram";
+
+export interface ChannelBase {
   /** Stable id (nanoid). */
   id: string;
   /** Display name, e.g. "Feishu alerts". */
   name: string;
-  /** Feishu custom-bot webhook URL. */
-  webhook_url: string;
-  /** Optional Feishu signing secret (enable signature verification on the bot). */
-  sign_secret?: string;
+  kind: ChannelKind;
   /** ISO timestamp. */
   created_at: string;
   /** ISO timestamp. */
   updated_at: string;
 }
+
+export interface FeishuChannelConfig extends ChannelBase {
+  kind: "feishu";
+  /** Feishu custom-bot webhook URL. */
+  webhook_url: string;
+  /** Optional Feishu signing secret (enable signature verification on the bot). */
+  sign_secret?: string;
+}
+
+export interface SlackChannelConfig extends ChannelBase {
+  kind: "slack";
+  /** Slack incoming webhook URL. */
+  webhook_url: string;
+}
+
+export interface TelegramChannelConfig extends ChannelBase {
+  kind: "telegram";
+  /** Telegram bot token, without the leading "bot". */
+  bot_token: string;
+  /** Telegram target chat id or @channelname. */
+  chat_id: string;
+}
+
+export type ChannelConfig = FeishuChannelConfig | SlackChannelConfig | TelegramChannelConfig;
 
 export interface RepoConfig {
   /** Lowercase "owner/name". */

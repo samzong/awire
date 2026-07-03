@@ -17,7 +17,7 @@
 
 import { checkAndMarkDelivery } from "./dedup.ts";
 import { resolveRoute, shouldForward } from "./config.ts";
-import { sendCard } from "./feishu.ts";
+import { deliver, type DeliveryResult } from "./delivery.ts";
 import { renderEvent } from "./render/index.ts";
 import type { Env, GitHubPayload } from "./types.ts";
 import { verifyGitHubSignature } from "./verify.ts";
@@ -123,17 +123,11 @@ async function handleWebhook(req: Request, env: Env): Promise<Response> {
     } else {
       const card = renderEvent("ping", undefined, payload);
       if (card) {
-        const result = await sendCard(route.channel.webhook_url, card, route.channel.sign_secret);
+        const result = await deliver(route.channel, card);
         if (result.ok) {
           logWebhook("info", "forwarded", { ...logFields, channel: route.channel.id });
         } else {
-          logWebhook("error", "feishu_failed", {
-            ...logFields,
-            channel: route.channel.id,
-            httpStatus: result.httpStatus,
-            feishuCode: result.statusCode,
-            feishuMsg: result.message,
-          });
+          logDeliveryFailure(logFields, route.channel.id, result);
         }
       }
     }
@@ -156,18 +150,39 @@ async function handleWebhook(req: Request, env: Env): Promise<Response> {
     return json({ ok: true, dropped: "renderer" });
   }
 
-  const result = await sendCard(route.channel.webhook_url, card, route.channel.sign_secret);
+  const result = await deliver(route.channel, card);
   if (!result.ok) {
-    logWebhook("error", "feishu_failed", {
-      ...logFields,
-      channel: route.channel.id,
-      httpStatus: result.httpStatus, feishuCode: result.statusCode, feishuMsg: result.message,
-    });
-    return json({ error: "feishu", message: result.message }, 502);
+    logDeliveryFailure(logFields, route.channel.id, result);
+    return json({ error: result.provider, message: result.message }, 502);
   }
 
   logWebhook("info", "forwarded", { ...logFields, channel: route.channel.id });
   return json({ ok: true });
+}
+
+function logDeliveryFailure(
+  logFields: Record<string, unknown>,
+  channel: string,
+  result: DeliveryResult,
+): void {
+  if (result.provider === "feishu") {
+    logWebhook("error", "feishu_failed", {
+      ...logFields,
+      channel,
+      httpStatus: result.httpStatus,
+      feishuCode: result.statusCode,
+      feishuMsg: result.message,
+    });
+    return;
+  }
+  logWebhook("error", "delivery_failed", {
+    ...logFields,
+    channel,
+    provider: result.provider,
+    httpStatus: result.httpStatus,
+    statusCode: result.statusCode,
+    message: result.message,
+  });
 }
 
 function logWebhook(level: "info" | "warn" | "error", msg: string, fields: Record<string, unknown>): void {
@@ -330,6 +345,8 @@ async function handleApi(req: Request, env: Env, sub: string, panelPath: string)
   const method = req.method.toUpperCase();
 
   if (sub === "whoami" && method === "GET") return api.apiWhoami();
+
+  if (sub === "telegram/chats" && method === "POST") return await api.apiTelegramChats(req);
 
   if (sub === "channels" && method === "POST") return await api.apiChannelCreate(env, panelPath, req);
 

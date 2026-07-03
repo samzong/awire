@@ -24,7 +24,7 @@ pnpm check:openapi
 Also smoke the authenticated endpoint:
 
 ```sh
-URL=http://localhost:8787 PANEL_TOKEN=<token> pnpm test:api
+pnpm test:api
 ```
 
 ## Cut a release

@@ -2,7 +2,7 @@ openapi: 3.0.3
 info:
   title: awire JSON Management API
   version: 0.1.0
-  description: JSON API for managing awire Feishu channels and repository routes.
+  description: JSON API for managing awire delivery channels and repository routes.
 security:
   - bearerAuth: []
 components:
@@ -54,11 +54,18 @@ components:
         name:
           type: string
           example: Feishu alerts
+        kind:
+          type: string
+          enum:
+            - feishu
+            - slack
+            - telegram
+          example: feishu
         webhook_url:
           type: string
           format: uri
           example: https://open.feishu.cn/open-apis/bot/v2/hook/...
-        sign_secret:
+        chat_id:
           type: string
         created_at:
           type: string
@@ -71,7 +78,7 @@ components:
       required:
         - id
         - name
-        - webhook_url
+        - kind
         - created_at
         - updated_at
     ChannelResponse:
@@ -88,6 +95,13 @@ components:
           type: string
           minLength: 1
           example: Feishu alerts
+        kind:
+          type: string
+          enum:
+            - feishu
+            - slack
+            - telegram
+          example: feishu
         webhook_url:
           type: string
           format: uri
@@ -95,19 +109,39 @@ components:
         sign_secret:
           type: string
           minLength: 1
+        bot_token:
+          type: string
+          minLength: 1
+        chat_id:
+          type: string
+          minLength: 1
       required:
         - name
-        - webhook_url
     ChannelUpdate:
       type: object
       properties:
         name:
           type: string
           minLength: 1
+        kind:
+          type: string
+          enum:
+            - feishu
+            - slack
+            - telegram
+          example: slack
         webhook_url:
           type: string
           format: uri
         sign_secret:
+          type: string
+          nullable: true
+          minLength: 1
+        bot_token:
+          type: string
+          nullable: true
+          minLength: 1
+        chat_id:
           type: string
           nullable: true
           minLength: 1
@@ -418,7 +452,7 @@ paths:
           in: path
       responses:
         "200":
-          description: Feishu send result.
+          description: Delivery send result.
           content:
             application/json:
               schema:

@@ -1,4 +1,4 @@
-# Copy to .dev.vars and fill in. Used by `wrangler dev` for local secrets.
+# Copy to .dev.vars and fill in. Used by `wrangler dev` and local smoke tests.
 # Never commit .dev.vars itself.
 
 # Bearer token for the admin panel API. The browser stores this after login.
@@ -9,3 +9,22 @@ PANEL_TOKEN=replace-with-a-strong-random-token
 # The panel lives at https://<worker>/<PANEL_PATH>
 # Generate one: pnpm gen:secret --path
 PANEL_PATH=_panel_replace_me
+
+# Local worker URL used by `pnpm test:api` and `pnpm test:webhook`.
+URL=http://localhost:8787
+
+# Repo webhook secret used by `pnpm test:webhook`.
+SECRET=replace-with-a-repo-webhook-secret
+
+# Optional webhook smoke overrides.
+# EVENT=issues_opened
+# DELIVERY=smoke-local
+
+# Optional Telegram card preview used by `pnpm test:telegram`.
+# TG_BOT_TOKEN=
+# TG_CHAT_ID=
+# TG_DELAY_MS=350
+
+# Optional Slack card preview used by `pnpm test:slack`.
+# SLACK_WEBHOOK_URL=
+# SLACK_DELAY_MS=350

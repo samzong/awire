@@ -17,8 +17,21 @@
 
 import type {
   ChannelConfig,
+  ChannelKind,
   RepoConfig,
 } from "./types.ts";
+
+type StoredChannelConfig = {
+  id: string;
+  name: string;
+  kind?: ChannelKind;
+  webhook_url?: string;
+  sign_secret?: string;
+  bot_token?: string;
+  chat_id?: string;
+  created_at: string;
+  updated_at: string;
+};
 
 // ===========================================================================
 // KEYS
@@ -67,7 +80,7 @@ export async function getChannel(
   id: string,
 ): Promise<ChannelConfig | null> {
   const raw = await configKv.get(channelKey(id), "json");
-  return (raw ?? null) as ChannelConfig | null;
+  return normalizeChannel((raw ?? null) as StoredChannelConfig | null);
 }
 
 export async function getRepo(
@@ -119,6 +132,38 @@ export async function putChannel(
     ids.push(channel.id);
     await configKv.put(K_ChannelsIndex, JSON.stringify(ids));
   }
+}
+
+function normalizeChannel(channel: StoredChannelConfig | null): ChannelConfig | null {
+  if (!channel) return null;
+  const kind = channel.kind ?? "feishu";
+  if (kind === "telegram") {
+    const bot_token = typeof channel.bot_token === "string"
+      ? channel.bot_token
+      : telegramTokenFromWebhook(typeof channel.webhook_url === "string" ? channel.webhook_url : "");
+    return {
+      id: channel.id,
+      name: channel.name,
+      kind,
+      bot_token: bot_token ?? "",
+      chat_id: channel.chat_id ?? "",
+      created_at: channel.created_at,
+      updated_at: channel.updated_at,
+    };
+  }
+  return {
+    id: channel.id,
+    name: channel.name,
+    kind,
+    webhook_url: channel.webhook_url ?? "",
+    ...(kind === "feishu" && channel.sign_secret ? { sign_secret: channel.sign_secret } : {}),
+    created_at: channel.created_at,
+    updated_at: channel.updated_at,
+  };
+}
+
+function telegramTokenFromWebhook(url: string): string | undefined {
+  return url.match(/^https:\/\/api\.telegram\.org\/bot([^/]+)\/sendMessage$/i)?.[1];
 }
 
 export async function deleteChannel(

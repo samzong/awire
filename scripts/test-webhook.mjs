@@ -4,8 +4,8 @@
  * or deployed awire worker and verify the response.
  *
  * Usage:
- *   URL=http://localhost:8787 SECRET=xxx pnpm test:webhook
- *   URL=https://awire.<acct>.workers.dev SECRET=xxx EVENT=issues_opened pnpm test:webhook
+ *   pnpm test:webhook
+ *   EVENT=pull_request_opened pnpm test:webhook
  *
  * Loads samples from ./samples/*.json (created on first run if missing).
  */
@@ -24,7 +24,7 @@ const EVENT = process.env.EVENT ?? "issues_opened";
 const DELIVERY = process.env.DELIVERY ?? `smoke-${Date.now()}`;
 
 if (!SECRET) {
-  console.error("Set SECRET=<repo webhook secret>");
+  console.error("Set SECRET=<repo webhook secret> in .dev.vars or env");
   process.exit(1);
 }
 

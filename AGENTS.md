@@ -6,7 +6,7 @@ Repo-local instructions for awire. Follow the global agent rules first, then the
 
 ## Cloudflare Log Analysis
 
-awire uses Cloudflare Workers Logs for production webhook diagnosis. Do not conclude that Cloudflare, GitHub, or Feishu dropped a message until you compare the GitHub delivery record with Worker logs.
+awire uses Cloudflare Workers Logs for production webhook diagnosis. Do not conclude that Cloudflare, GitHub, or a delivery target dropped a message until you compare the GitHub delivery record with Worker logs.
 
 Use `X-GitHub-Delivery` as the correlation key. The Worker logs it as `delivery` on webhook paths.
 
@@ -28,6 +28,7 @@ Expected webhook log messages:
 - `event_filtered`
 - `renderer_dropped`
 - `feishu_failed`
+- `delivery_failed`
 - `forwarded`
 
 Interpretation order:
@@ -37,4 +38,4 @@ Interpretation order:
 3. If `webhook_received` exists, use the terminal log message above to locate the drop point.
 4. If `feishu_failed` is followed by `dedup_duplicate` for the same delivery, the dedup mark happened before a successful send.
 
-Never log or paste payload bodies, Feishu webhook URLs, GitHub webhook secrets, panel tokens, or Cloudflare tokens. Use local environment variables or existing Wrangler auth for API access; do not ask the user to paste secrets into chat.
+Never log or paste payload bodies, delivery target URLs, GitHub webhook secrets, panel tokens, or Cloudflare tokens. Use local environment variables or existing Wrangler auth for API access; do not ask the user to paste secrets into chat.

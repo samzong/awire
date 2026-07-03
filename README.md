@@ -6,8 +6,9 @@
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://github.com/samzong/awire/blob/main/LICENSE)
 
 `awire` routes source events to delivery channels as interactive cards. The
-first adapter set supports GitHub repository webhooks and Feishu (Lark) group
-chat bots. Pure KV storage, an HTMX admin panel, no build step.
+first adapter set supports GitHub repository webhooks and Feishu (Lark), Slack,
+and Telegram delivery targets. Pure KV storage, an HTMX admin panel, no build
+step.
 
 - **Single binary deploy** — `wrangler deploy`. No frontend build, no SQL migrations.
 - **Pure KV** — config + dedup live in two KV namespaces. No D1, no database.
@@ -24,7 +25,7 @@ chat bots. Pure KV storage, an HTMX admin panel, no build step.
 - Node.js 22+ (wrangler 4.x requires it)
 - pnpm 11+ (`npm i -g pnpm`)
 - A Cloudflare account (`wrangler login`)
-- A Feishu custom bot
+- A Feishu custom bot, Slack incoming webhook, or Telegram bot
 
 ### 2. Install
 
@@ -87,8 +88,10 @@ Note the deployed URL, e.g. `https://awire.<your-acct>.workers.dev`.
 Visit `https://awire.<your-acct>.workers.dev/<PANEL_PATH>` and sign in with
 your `PANEL_TOKEN`. From the panel:
 
-1. **Channels** → *Add channel* → paste your Feishu webhook URL (and optional
-   signing secret). Click **Test** to verify.
+1. **Channels** → *Add channel* → choose Feishu, Slack, or Telegram. Feishu and
+   Slack use webhook URLs; Telegram uses a bot token plus `chat_id`. Click
+   **Discover chats** after the bot has seen a message, then click **Test** to
+   verify.
 2. **Repos** → *Add repo* → enter `owner/name`, pick a channel, optionally add
    that repo's GitHub webhook secret, and check the events you want forwarded.
 3. In **Repos**, use the **Default** row to optionally route repos without an
@@ -106,7 +109,7 @@ In GitHub → repo → **Settings → Webhooks → Add webhook**:
 | Events | choose the events you want awire to receive |
 
 GitHub sends a `ping` on save — if your route allows it, you'll see a
-connection card in your Feishu group.
+connection card in your configured channel.
 
 ---
 
@@ -119,12 +122,19 @@ pnpm dev                    # wrangler dev (local KV simulation)
 In another terminal:
 
 ```bash
-URL=http://localhost:8787 SECRET=<your-secret> pnpm test:webhook
-URL=http://localhost:8787 SECRET=<your-secret> EVENT=pull_request_opened pnpm test:webhook
+pnpm test:api
+pnpm test:webhook
+EVENT=pull_request_opened pnpm test:webhook
+pnpm test:slack
+pnpm test:telegram
 ```
 
-This sends a signed sample payload through the full pipeline. Open the panel
-at `http://localhost:8787/<PANEL_PATH>` to manage config while it runs.
+These commands read `.dev.vars`. `test:webhook` sends a signed sample payload
+through the full pipeline. `test:slack` and `test:telegram` send one rendered
+card per supported GitHub message type; use `SLACK_DRY_RUN=1 pnpm test:slack`
+or `TG_DRY_RUN=1 pnpm test:telegram` to verify rendering without sending. Open
+the panel at `http://localhost:8787/<PANEL_PATH>` to manage config while it
+runs.
 
 ---
 
@@ -149,7 +159,7 @@ GitHub Repo ──webhook──► POST /hook/github
                     │  5. render        │  15 templates + generic renderer
                     └─────────┬─────────┘
                     ┌─────────┴─────────┐
-                    │  6. send to Feishu│  optional signing
+                    │  6. send          │  Feishu, Slack, Telegram
                     └───────────────────┘
 ```
 
@@ -213,14 +223,17 @@ layer even when the event filter allows them.
 
 ## Configuration reference
 
-### Channel (Feishu bot)
+### Channel
 
 ```jsonc
 {
   "id": "<random>",
-  "name": "Feishu · alerts",
-  "webhook_url": "https://open.feishu.cn/open-apis/bot/v2/hook/xxxx",
-  "sign_secret": "<optional, when bot signature verification is enabled>"
+  "name": "Alerts",
+  "kind": "feishu | slack | telegram",
+  "webhook_url": "<Feishu/Slack only: webhook URL>",
+  "sign_secret": "<Feishu only: optional signing secret>",
+  "bot_token": "<Telegram only: bot token>",
+  "chat_id": "<Telegram only: target chat id or @channelname>"
 }
 ```
 
@@ -250,9 +263,8 @@ Event filter semantics:
   cookie for browser navigation. The panel sits at a non-guessable path
   (`PANEL_PATH`).
 - **Panel secrets** (`PANEL_TOKEN`, `PANEL_PATH`) live in Worker secrets, never
-  in KV or source. Per-repo GitHub webhook secrets and per-channel Feishu
-  signing secrets are stored in `CONFIG_KV` — rotate from the panel if
-  compromised.
+  in KV or source. Per-repo GitHub webhook secrets and delivery target secrets
+  are stored in `CONFIG_KV` — rotate from the panel if compromised.
 - **HTML rendering** escapes all user-supplied strings (`escapeHtml`).
 
 ---
@@ -275,7 +287,7 @@ Event filter semantics:
 | Symptom | Check |
 |---|---|
 | GitHub shows webhook as "last delivery failed" with 401 | GitHub webhook secret does not match the repo's optional secret in awire |
-| No card in Feishu | Panel → Channels → Test. Verify sign_secret matches the bot's signature verification setting. |
+| No card in channel | Panel → Channels → Test. For Feishu, verify `sign_secret`; for Telegram, verify `bot_token` and `chat_id`. |
 | No PR, issue, star, or fork card, and GitHub shows no matching delivery | GitHub webhook is not subscribed to that event. Enable the repo webhook event (`pull_request`, `issues`, `star`, or `fork`); awire can only filter events after GitHub sends them. |
 | Duplicate cards | Dedup window is 10 min. GitHub may still retry after that — increase if needed. |
 | Panel returns 401 | Session expired or token is invalid. Re-login at `/<PANEL_PATH>`. |
@@ -294,6 +306,9 @@ Event filter semantics:
 | `pnpm types` | Regenerate `worker-configuration.d.ts` from `wrangler.jsonc` |
 | `pnpm typecheck` | `tsc --noEmit` |
 | `pnpm gen:secret` | Print three random secrets |
+| `pnpm test:delivery` | Check Slack/Telegram delivery formatting locally |
+| `pnpm test:slack` | Send all rendered card types to Slack |
+| `pnpm test:telegram` | Send all rendered card types to Telegram |
 | `pnpm test:webhook` | Send a signed sample payload |
 
 ---

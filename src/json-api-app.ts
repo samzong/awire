@@ -9,13 +9,22 @@ import {
   putChannel,
   putRepo,
 } from "./config.ts";
-import { sendCard } from "./feishu.ts";
+import { deliver } from "./delivery.ts";
 import { extractBearer, verifyPanelToken } from "./panel/auth.ts";
 import { normalizeEventKeys } from "./panel/fragments/repos.ts";
 import { renderCardText } from "./render/shared.ts";
 import type { ChannelConfig, Env, RepoConfig } from "./types.ts";
 
 type JsonApiEnv = { Bindings: Env };
+type ChannelOutput = {
+  id: string;
+  name: string;
+  kind: ChannelConfig["kind"];
+  webhook_url?: string;
+  chat_id?: string;
+  created_at: string;
+  updated_at: string;
+};
 
 const ErrorSchema = z.object({
   error: z.string().openapi({ example: "invalid request" }),
@@ -31,11 +40,14 @@ const WhoamiSchema = z.object({
   service: z.string().openapi({ example: "awire" }),
 }).openapi("WhoamiResponse");
 
+const ChannelKindSchema = z.enum(["feishu", "slack", "telegram"]);
+
 const ChannelSchema = z.object({
   id: z.string().openapi({ example: "2b2ed599-697c-4e83-93f4-92f18f5254e9" }),
   name: z.string().openapi({ example: "Feishu alerts" }),
-  webhook_url: z.string().url().openapi({ example: "https://open.feishu.cn/open-apis/bot/v2/hook/..." }),
-  sign_secret: z.string().optional(),
+  kind: ChannelKindSchema.openapi({ example: "feishu" }),
+  webhook_url: z.string().url().optional().openapi({ example: "https://open.feishu.cn/open-apis/bot/v2/hook/..." }),
+  chat_id: z.string().optional(),
   created_at: z.string().datetime().openapi({ example: "2026-06-25T12:00:00.000Z" }),
   updated_at: z.string().datetime().openapi({ example: "2026-06-25T12:00:00.000Z" }),
 }).openapi("Channel");
@@ -51,16 +63,22 @@ const RepoSchema = z.object({
 
 const ChannelCreateSchema = z.object({
   name: z.string().trim().min(1).openapi({ example: "Feishu alerts" }),
-  webhook_url: z.string().trim().url().refine(isHttpsUrl).openapi({
+  kind: ChannelKindSchema.optional().openapi({ example: "feishu" }),
+  webhook_url: z.string().trim().url().refine(isHttpsUrl).optional().openapi({
     example: "https://open.feishu.cn/open-apis/bot/v2/hook/...",
   }),
   sign_secret: z.string().trim().min(1).optional(),
+  bot_token: z.string().trim().min(1).optional(),
+  chat_id: z.string().trim().min(1).optional(),
 }).openapi("ChannelCreate");
 
 const ChannelUpdateSchema = z.object({
   name: z.string().trim().min(1).optional(),
+  kind: ChannelKindSchema.optional().openapi({ example: "slack" }),
   webhook_url: z.string().trim().url().refine(isHttpsUrl).optional(),
   sign_secret: z.string().trim().min(1).nullable().optional(),
+  bot_token: z.string().trim().min(1).nullable().optional(),
+  chat_id: z.string().trim().min(1).nullable().optional(),
 }).openapi("ChannelUpdate");
 
 const RepoCreateSchema = z.object({
@@ -140,7 +158,7 @@ export const openApiConfig = {
   info: {
     title: "awire JSON Management API",
     version: "0.1.0",
-    description: "JSON API for managing awire Feishu channels and repository routes.",
+    description: "JSON API for managing awire delivery channels and repository routes.",
   },
   security: [{ bearerAuth: [] }],
 } satisfies Parameters<typeof jsonApiApp.getOpenAPIDocument>[0];
@@ -171,7 +189,7 @@ const listChannelsRoute = createRoute({
   },
 });
 
-jsonApiApp.openapi(listChannelsRoute, async (c) => c.json({ channels: await listChannels(c.env.CONFIG_KV) }, 200));
+jsonApiApp.openapi(listChannelsRoute, async (c) => c.json({ channels: (await listChannels(c.env.CONFIG_KV)).map(channelOutput) }, 200));
 
 const createChannelRoute = createRoute({
   method: "post",
@@ -191,17 +209,21 @@ const createChannelRoute = createRoute({
 
 jsonApiApp.openapi(createChannelRoute, async (c) => {
   const body = c.req.valid("json");
+  const kind = body.kind ?? "feishu";
   const now = timestamp();
-  const channel: ChannelConfig = {
-    id: crypto.randomUUID(),
-    name: body.name,
-    webhook_url: body.webhook_url,
-    sign_secret: body.sign_secret,
-    created_at: now,
-    updated_at: now,
-  };
+  const base = { id: crypto.randomUUID(), name: body.name, created_at: now, updated_at: now };
+  let channel: ChannelConfig;
+  if (kind === "telegram") {
+    if (!body.bot_token || !body.chat_id) return c.json({ error: "telegram bot_token and chat_id are required" }, 400);
+    channel = { ...base, kind, bot_token: body.bot_token, chat_id: body.chat_id };
+  } else {
+    if (!body.webhook_url) return c.json({ error: "webhook_url is required" }, 400);
+    channel = kind === "feishu"
+      ? { ...base, kind, webhook_url: body.webhook_url, sign_secret: body.sign_secret }
+      : { ...base, kind, webhook_url: body.webhook_url };
+  }
   await putChannel(c.env.CONFIG_KV, channel);
-  return c.json({ channel }, 201);
+  return c.json({ channel: channelOutput(channel) }, 201);
 });
 
 const getChannelRoute = createRoute({
@@ -222,7 +244,7 @@ jsonApiApp.openapi(getChannelRoute, async (c) => {
   const { id } = c.req.valid("param");
   const channel = await getChannel(c.env.CONFIG_KV, id);
   if (!channel) return c.json({ error: "channel not found" }, 404);
-  return c.json({ channel }, 200);
+  return c.json({ channel: channelOutput(channel) }, 200);
 });
 
 const updateChannelRoute = createRoute({
@@ -249,15 +271,23 @@ jsonApiApp.openapi(updateChannelRoute, async (c) => {
   if (!existing) return c.json({ error: "channel not found" }, 404);
 
   const body = c.req.valid("json");
-  const channel: ChannelConfig = {
-    ...existing,
-    name: body.name ?? existing.name,
-    webhook_url: body.webhook_url ?? existing.webhook_url,
-    sign_secret: nullableUpdate(body.sign_secret, existing.sign_secret),
-    updated_at: timestamp(),
-  };
+  const kind = body.kind ?? existing.kind;
+  const base = { id: existing.id, name: body.name ?? existing.name, created_at: existing.created_at, updated_at: timestamp() };
+  let channel: ChannelConfig;
+  if (kind === "telegram") {
+    const bot_token = nullableUpdate(body.bot_token, existing.kind === "telegram" ? existing.bot_token : undefined);
+    const chat_id = nullableUpdate(body.chat_id, existing.kind === "telegram" ? existing.chat_id : undefined);
+    if (!bot_token || !chat_id) return c.json({ error: "telegram bot_token and chat_id are required" }, 400);
+    channel = { ...base, kind, bot_token, chat_id };
+  } else {
+    const webhook_url = body.webhook_url ?? (existing.kind !== "telegram" ? existing.webhook_url : undefined);
+    if (!webhook_url) return c.json({ error: "webhook_url is required" }, 400);
+    channel = kind === "feishu"
+      ? { ...base, kind, webhook_url, sign_secret: nullableUpdate(body.sign_secret, existing.kind === "feishu" ? existing.sign_secret : undefined) }
+      : { ...base, kind, webhook_url };
+  }
   await putChannel(c.env.CONFIG_KV, channel);
-  return c.json({ channel }, 200);
+  return c.json({ channel: channelOutput(channel) }, 200);
 });
 
 const deleteChannelRoute = createRoute({
@@ -294,7 +324,7 @@ const testChannelRoute = createRoute({
   summary: "Send a test card through a delivery channel.",
   request: { params: ChannelParamsSchema },
   responses: {
-    200: { description: "Feishu send result.", content: { "application/json": { schema: ChannelTestResponseSchema } } },
+    200: { description: "Delivery send result.", content: { "application/json": { schema: ChannelTestResponseSchema } } },
     401: { description: "Unauthorized.", content: { "application/json": { schema: ErrorSchema } } },
     404: { description: "Not found.", content: { "application/json": { schema: ErrorSchema } } },
   },
@@ -304,13 +334,12 @@ jsonApiApp.openapi(testChannelRoute, async (c) => {
   const { id } = c.req.valid("param");
   const channel = await getChannel(c.env.CONFIG_KV, id);
   if (!channel) return c.json({ error: "channel not found" }, 404);
-  const result = await sendCard(
-    channel.webhook_url,
+  const result = await deliver(
+    channel,
     renderCardText(
       "awire test",
-      `**Channel:** ${channel.name}\n**Time:** ${timestamp()}\n\nIf you see this, your Feishu webhook${channel.sign_secret ? " and signing secret" : ""} are configured correctly.`,
+      `**Channel:** ${channel.name}\n**Type:** ${channel.kind}\n**Time:** ${timestamp()}\n\nIf you see this, the delivery target is configured correctly.`,
     ),
-    channel.sign_secret,
   );
   return c.json({ ok: result.ok, message: result.message, statusCode: result.statusCode }, 200);
 });
@@ -446,6 +475,19 @@ jsonApiApp.openapi(deleteRepoRoute, async (c) => {
   await deleteRepo(c.env.CONFIG_KV, full_name);
   return c.json({ ok: true }, 200);
 });
+
+function channelOutput(channel: ChannelConfig): ChannelOutput {
+  const base = {
+    id: channel.id,
+    name: channel.name,
+    kind: channel.kind,
+    created_at: channel.created_at,
+    updated_at: channel.updated_at,
+  };
+  if (channel.kind === "telegram") return { ...base, chat_id: channel.chat_id };
+  if (channel.kind === "feishu") return { ...base, webhook_url: channel.webhook_url };
+  return { ...base, webhook_url: channel.webhook_url };
+}
 
 function nullableUpdate(value: string | null | undefined, fallback: string | undefined): string | undefined {
   if (value === undefined) return fallback;
