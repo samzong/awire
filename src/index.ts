@@ -3,10 +3,10 @@
  *
  * Three route families:
  *
- *   POST /hook/github            GitHub webhook (no auth — verified by HMAC)
+ *   POST /hook/github/<account> GitHub webhook (no auth — verified by HMAC)
  *   GET  /                       Health check (public)
  *   *    /api/v1/*               JSON management API (Bearer token)
- *   GET  /<PANEL_PATH>           Panel shell (auth via Bearer token)
+ *   GET  /<PANEL_PATH>           Panel shell (GitHub OAuth session)
  *   GET  /<PANEL_PATH>/<page>    Panel pages (fragment swap)
  *   GET  /<PANEL_PATH>/fragments/*
  *   *    /<PANEL_PATH>/api/*
@@ -21,7 +21,19 @@ import { deliver, type DeliveryResult } from "./delivery.ts";
 import { renderEvent } from "./render/index.ts";
 import type { Env, GitHubPayload } from "./types.ts";
 import { verifyGitHubSignature } from "./verify.ts";
-import { extractToken, buildSessionCookieHeader, verifyPanelToken } from "./panel/auth.ts";
+import {
+  buildGitHubAuthorizeUrl,
+  buildOAuthStateCookieHeader,
+  buildSignedSessionCookieHeader,
+  clearOAuthStateCookieHeader,
+  clearSessionCookieHeader,
+  exchangeGitHubCode,
+  hasGitHubOAuthConfig,
+  randomOAuthState,
+  readPanelSession,
+  type PanelSession,
+  verifyOAuthState,
+} from "./panel/auth.ts";
 import { renderLoginPage, renderPanelShell, type NavKey } from "./panel/html.ts";
 import * as api from "./panel/api.ts";
 import { handleJsonApi } from "./json-api.ts";
@@ -43,8 +55,8 @@ export default {
       // -------------------------------------------------------------------
       // GitHub webhook
       // -------------------------------------------------------------------
-      if (path === "/hook/github" && method === "POST") {
-        return await handleWebhook(req, env);
+      if ((path === "/hook/github" || path.startsWith("/hook/github/")) && method === "POST") {
+        return await handleWebhook(req, env, webhookAccountId(path));
       }
 
       if (path === "/api/v1" || path.startsWith("/api/v1/")) {
@@ -78,7 +90,7 @@ export default {
 // WEBHOOK HANDLER
 // ===========================================================================
 
-async function handleWebhook(req: Request, env: Env): Promise<Response> {
+async function handleWebhook(req: Request, env: Env, accountId: string | undefined): Promise<Response> {
   const event = req.headers.get("X-GitHub-Event") ?? "";
   const deliveryId = req.headers.get("X-GitHub-Delivery");
   const rawBody = await req.arrayBuffer();
@@ -95,11 +107,11 @@ async function handleWebhook(req: Request, env: Env): Promise<Response> {
 
   const action = typeof payload.action === "string" ? payload.action : undefined;
   const repoFullName = payload.repository?.full_name ?? "";
-  const logFields = { delivery: deliveryId, event, action, repo: repoFullName };
+  const logFields = { delivery: deliveryId, event, action, repo: repoFullName, ...(accountId ? { account: accountId } : {}) };
 
   logWebhook("info", "webhook_received", logFields);
 
-  const route = await resolveRoute(env.CONFIG_KV, repoFullName);
+  const route = await resolveRoute(env.CONFIG_KV, repoFullName, accountId);
   if (route?.webhook_secret) {
     const sig = req.headers.get("X-Hub-Signature-256");
     const verify = await verifyGitHubSignature(sig, rawBody, route.webhook_secret);
@@ -109,7 +121,7 @@ async function handleWebhook(req: Request, env: Env): Promise<Response> {
     }
   }
 
-  const dedup = await checkAndMarkDelivery(env.DEDUP_KV, deliveryId);
+  const dedup = await checkAndMarkDelivery(env.DEDUP_KV, deliveryId, accountId);
   if (dedup.duplicate) {
     logWebhook("info", "dedup_duplicate", logFields);
     return json({ ok: true, dedup: true });
@@ -233,45 +245,63 @@ async function handlePanel(req: Request, env: Env, path: string, panelPath: stri
   // -------------------------------------------------------------------------
   if (rest === "" || rest === "/") {
     if (method === "GET") {
-      // Already-authed user (cookie present + valid) → skip login, go to dashboard.
-      const authed = await extractToken(req, env.PANEL_TOKEN);
-      if (authed) {
+      const session = await currentSession(req, env);
+      if (session) {
         return Response.redirect(new URL(`/${panelPath}/dashboard`, baseUrl).toString(), 302);
       }
-      return html(renderLoginPage(`/${panelPath}`));
+      return html(renderLoginPage(`/${panelPath}`, hasGitHubOAuthConfig(env)));
     }
     return json({ error: "method not allowed" }, 405);
   }
 
-  if (rest === "/login" && method === "POST") {
-    // Form submission from the login page. Validate the token, set a cookie,
-    // and redirect to the dashboard. The browser carries the cookie on the
-    // redirect, so the dashboard GET is authenticated.
-    const form = await req.formData();
-    const token = String(form.get("token") ?? "").trim();
-    if (!token || !(await verifyPanelToken(token, env.PANEL_TOKEN))) {
-      return Response.redirect(new URL(`/${panelPath}?err=1`, baseUrl).toString(), 303);
+  if (rest === "/auth/github" && method === "GET") {
+    if (!hasGitHubOAuthConfig(env)) {
+      return Response.redirect(new URL(`/${panelPath}?err=config`, baseUrl).toString(), 303);
     }
+    const state = randomOAuthState();
+    const redirectUri = new URL(`/${panelPath}/auth/github/callback`, baseUrl).toString();
+    const headers = new Headers({
+      Location: buildGitHubAuthorizeUrl(env, redirectUri, state),
+      "Set-Cookie": buildOAuthStateCookieHeader(state, panelPath),
+    });
+    return new Response(null, { status: 302, headers });
+  }
+
+  if (rest === "/auth/github/callback" && method === "GET") {
+    const state = baseUrl.searchParams.get("state") ?? "";
+    const code = baseUrl.searchParams.get("code") ?? "";
+    if (!code || !verifyOAuthState(req, state) || !hasGitHubOAuthConfig(env)) {
+      return Response.redirect(new URL(`/${panelPath}?err=oauth`, baseUrl).toString(), 303);
+    }
+    const redirectUri = new URL(`/${panelPath}/auth/github/callback`, baseUrl).toString();
     const headers = new Headers({
       Location: new URL(`/${panelPath}/dashboard`, baseUrl).toString(),
-      "Set-Cookie": buildSessionCookieHeader(token, panelPath),
     });
-    return new Response(null, { status: 303, headers });
+    headers.append("Set-Cookie", clearOAuthStateCookieHeader(panelPath));
+    try {
+      const user = await exchangeGitHubCode(env, code, redirectUri);
+      headers.append("Set-Cookie", await buildSignedSessionCookieHeader(user, env.SESSION_SECRET, panelPath));
+      return new Response(null, { status: 303, headers });
+    } catch {
+      headers.set("Location", new URL(`/${panelPath}?err=oauth`, baseUrl).toString());
+      return new Response(null, { status: 303, headers });
+    }
   }
 
   if (rest === "/logout" && method === "POST") {
     const headers = new Headers({
       Location: new URL(`/${panelPath}`, baseUrl).toString(),
-      "Set-Cookie": `${"awire_session"}=; Path=/${panelPath}; HttpOnly; Secure; SameSite=Lax; Max-Age=0`,
+      "Set-Cookie": clearSessionCookieHeader(panelPath),
     });
+    headers.append("Set-Cookie", clearOAuthStateCookieHeader(panelPath));
     return new Response(null, { status: 303, headers });
   }
 
   // -------------------------------------------------------------------------
   // All other panel routes require auth (Bearer header OR session cookie).
   // -------------------------------------------------------------------------
-  const authed = await extractToken(req, env.PANEL_TOKEN);
-  if (!authed) {
+  const session = await currentSession(req, env);
+  if (!session) {
     const isHtmx = req.headers.get("HX-Request") === "true";
     const acceptsHtml = (req.headers.get("Accept") ?? "").includes("text/html");
     if (!isHtmx && acceptsHtml) {
@@ -286,8 +316,8 @@ async function handlePanel(req: Request, env: Env, path: string, panelPath: stri
   // -------------------------------------------------------------------------
   if (method === "GET" && (rest === "/dashboard" || rest === "/repos" || rest === "/channels")) {
     const page = rest.slice(1) as NavKey;
-    const webhookUrl = buildWebhookUrl(req);
-    const content = await pageFragment(env, page, `/${panelPath}`, webhookUrl);
+    const webhookUrl = buildWebhookUrl(req, session.accountId);
+    const content = await pageFragment(env, page, `/${panelPath}`, webhookUrl, session.accountId);
     return html(renderPanelShell({
       panelPath: `/${panelPath}`,
       activeNav: page,
@@ -299,80 +329,80 @@ async function handlePanel(req: Request, env: Env, path: string, panelPath: stri
   // Fragments (HTMX partial swaps)
   // -------------------------------------------------------------------------
   if (method === "GET" && rest.startsWith("/fragments/")) {
-    return html(await handleFragment(req, env, rest.slice("/fragments/".length), `/${panelPath}`));
+    return html(await handleFragment(req, env, rest.slice("/fragments/".length), `/${panelPath}`, session.accountId));
   }
 
   // -------------------------------------------------------------------------
   // API (mutations)
   // -------------------------------------------------------------------------
   if (rest.startsWith("/api/")) {
-    return html(await handleApi(req, env, rest.slice("/api/".length), `/${panelPath}`));
+    return html(await handleApi(req, env, rest.slice("/api/".length), `/${panelPath}`, session.accountId));
   }
 
   return json({ error: "not found" }, 404);
 }
 
-async function pageFragment(env: Env, page: NavKey, panelPath: string, webhookUrl: string): Promise<string> {
+async function pageFragment(env: Env, page: NavKey, panelPath: string, webhookUrl: string, accountId: string): Promise<string> {
   switch (page) {
     case "dashboard":
-      return await api.fragmentDashboard(env, panelPath, webhookUrl);
+      return await api.fragmentDashboard(env, panelPath, webhookUrl, accountId);
     case "channels":
-      return await api.fragmentChannels(env, panelPath);
+      return await api.fragmentChannels(env, panelPath, accountId);
     case "repos":
-      return await api.fragmentRepos(env, panelPath);
+      return await api.fragmentRepos(env, panelPath, accountId);
   }
 }
 
-async function handleFragment(req: Request, env: Env, sub: string, panelPath: string): Promise<string> {
-  const webhookUrl = buildWebhookUrl(req);
-  if (sub === "dashboard") return await api.fragmentDashboard(env, panelPath, webhookUrl);
-  if (sub === "channels") return await api.fragmentChannels(env, panelPath);
+async function handleFragment(req: Request, env: Env, sub: string, panelPath: string, accountId: string): Promise<string> {
+  const webhookUrl = buildWebhookUrl(req, accountId);
+  if (sub === "dashboard") return await api.fragmentDashboard(env, panelPath, webhookUrl, accountId);
+  if (sub === "channels") return await api.fragmentChannels(env, panelPath, accountId);
   if (sub === "channels/new") return api.fragmentChannelNew(panelPath);
   if (sub.startsWith("channels/") && sub.endsWith("/edit")) {
     const id = decodeURIComponent(sub.slice("channels/".length, -"/edit".length));
-    return await api.fragmentChannelEdit(env, panelPath, id);
+    return await api.fragmentChannelEdit(env, panelPath, id, accountId);
   }
-  if (sub === "repos") return await api.fragmentRepos(env, panelPath);
-  if (sub === "repos/new") return await api.fragmentRepoNewAsync(env, panelPath);
+  if (sub === "repos") return await api.fragmentRepos(env, panelPath, accountId);
+  if (sub === "repos/new") return await api.fragmentRepoNewAsync(env, panelPath, accountId);
   if (sub.startsWith("repos/") && sub.endsWith("/edit")) {
     const full = decodeURIComponent(sub.slice("repos/".length, -"/edit".length));
-    return await api.fragmentRepoEdit(env, panelPath, full);
+    return await api.fragmentRepoEdit(env, panelPath, full, accountId);
   }
   return notFoundHtml("fragment");
 }
 
-async function handleApi(req: Request, env: Env, sub: string, panelPath: string): Promise<string> {
+async function handleApi(req: Request, env: Env, sub: string, panelPath: string, accountId: string): Promise<string> {
   const method = req.method.toUpperCase();
 
   if (sub === "whoami" && method === "GET") return api.apiWhoami();
 
   if (sub === "telegram/chats" && method === "POST") return await api.apiTelegramChats(req);
 
-  if (sub === "channels" && method === "POST") return await api.apiChannelCreate(env, panelPath, req);
+  if (sub === "channels" && method === "POST") return await api.apiChannelCreate(env, panelPath, req, accountId);
 
   if (sub.startsWith("channels/")) {
     const parts = sub.slice("channels/".length).split("/");
     const id = decodeURIComponent(parts[0] ?? "");
     const op = parts[1];
-    if (op === "test" && method === "POST") return await api.apiChannelTest(env, panelPath, id);
-    if (op === undefined && method === "DELETE") return await api.apiChannelDelete(env, panelPath, id);
+    if (op === "test" && method === "POST") return await api.apiChannelTest(env, panelPath, id, accountId);
+    if (op === undefined && method === "DELETE") return await api.apiChannelDelete(env, panelPath, id, accountId);
     if (op === undefined && method === "POST") {
       // _method=put override (HTML forms can't PUT)
       const form = await req.clone().formData();
-      if (form.get("_method") === "put") return await api.apiChannelUpdate(env, panelPath, req, id);
+      if (form.get("_method") === "put") return await api.apiChannelUpdate(env, panelPath, req, id, accountId);
     }
   }
 
-  if (sub === "repos" && method === "POST") return await api.apiRepoCreate(env, panelPath, req);
+  if (sub === "repos" && method === "POST") return await api.apiRepoCreate(env, panelPath, req, accountId);
 
   if (sub.startsWith("repos/")) {
     const parts = sub.slice("repos/".length).split("/");
     const full = decodeURIComponent(parts[0] ?? "");
     const op = parts[1];
-    if (op === undefined && method === "DELETE") return await api.apiRepoDelete(env, panelPath, full);
+    if (op === undefined && method === "DELETE") return await api.apiRepoDelete(env, panelPath, full, accountId);
     if (op === undefined && method === "POST") {
       const form = await req.clone().formData();
-      if (form.get("_method") === "put") return await api.apiRepoUpdate(env, panelPath, req, full);
+      if (form.get("_method") === "put") return await api.apiRepoUpdate(env, panelPath, req, full, accountId);
     }
   }
 
@@ -383,9 +413,19 @@ async function handleApi(req: Request, env: Env, sub: string, panelPath: string)
 // Helpers
 // ===========================================================================
 
-function buildWebhookUrl(req: Request): string {
+function webhookAccountId(path: string): string | undefined {
+  const rest = path.slice("/hook/github".length);
+  if (!rest || rest === "/") return undefined;
+  return decodeURIComponent(rest.slice(1));
+}
+
+async function currentSession(req: Request, env: Env): Promise<PanelSession | null> {
+  return env.SESSION_SECRET ? await readPanelSession(req, env.SESSION_SECRET) : null;
+}
+
+function buildWebhookUrl(req: Request, accountId?: string): string {
   const url = new URL(req.url);
-  return `${url.origin}/hook/github`;
+  return `${url.origin}/hook/github${accountId ? `/${encodeURIComponent(accountId)}` : ""}`;
 }
 
 function json(body: unknown, status = 200): Response {

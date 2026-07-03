@@ -2,10 +2,10 @@
  * Configuration loader + event filtering.
  *
  * Storage strategy (KV index pattern):
- *   "channels:index" -> string[]
- *   "channel:<id>"   -> ChannelConfig
- *   "repos:index"    -> string[]            (lowercase "owner/name" or "owner/*")
- *   "repo:<full>"    -> RepoConfig
+ *   "account:<id>:channels:index" -> string[]
+ *   "account:<id>:channel:<id>"   -> ChannelConfig
+ *   "account:<id>:repos:index"    -> string[]            (lowercase "owner/name" or "owner/*")
+ *   "account:<id>:repo:<full>"    -> RepoConfig
  *
  * The webhook hot path first checks an exact repo route, then an owner wildcard.
  *
@@ -36,11 +36,11 @@ type StoredChannelConfig = {
 // KEYS
 // ===========================================================================
 
-const K_ChannelsIndex = "channels:index";
-const K_ReposIndex = "repos:index";
-
-const channelKey = (id: string) => `channel:${id}`;
-const repoKey = (full: string) => `repo:${full.toLowerCase()}`;
+const prefix = (accountId: string | undefined) => accountId ? `account:${accountId}:` : "";
+const channelsIndexKey = (accountId?: string) => `${prefix(accountId)}channels:index`;
+const reposIndexKey = (accountId?: string) => `${prefix(accountId)}repos:index`;
+const channelKey = (id: string, accountId?: string) => `${prefix(accountId)}channel:${id}`;
+const repoKey = (full: string, accountId?: string) => `${prefix(accountId)}repo:${full.toLowerCase()}`;
 
 // ===========================================================================
 // READ - webhook hot path (single resolution)
@@ -58,10 +58,11 @@ export interface ResolvedRoute {
 export async function resolveRoute(
   configKv: KVNamespace,
   repoFullName: string,
+  accountId?: string,
 ): Promise<ResolvedRoute | null> {
-  const repoCfg = await getRepo(configKv, repoFullName) ?? await getOwnerWildcardRepo(configKv, repoFullName);
+  const repoCfg = await getRepo(configKv, repoFullName, accountId) ?? await getOwnerWildcardRepo(configKv, repoFullName, accountId);
   if (repoCfg) {
-    const channel = await getChannel(configKv, repoCfg.channel_id);
+    const channel = await getChannel(configKv, repoCfg.channel_id, accountId);
     if (!channel) return null;
     return { channel, events: repoCfg.events, webhook_secret: repoCfg.webhook_secret };
   }
@@ -76,35 +77,39 @@ export async function resolveRoute(
 export async function getChannel(
   configKv: KVNamespace,
   id: string,
+  accountId?: string,
 ): Promise<ChannelConfig | null> {
-  const raw = await configKv.get(channelKey(id), "json");
+  const raw = await configKv.get(channelKey(id, accountId), "json");
   return normalizeChannel((raw ?? null) as StoredChannelConfig | null);
 }
 
 export async function getRepo(
   configKv: KVNamespace,
   fullName: string,
+  accountId?: string,
 ): Promise<RepoConfig | null> {
-  const raw = await configKv.get(repoKey(fullName), "json");
+  const raw = await configKv.get(repoKey(fullName, accountId), "json");
   return (raw ?? null) as RepoConfig | null;
 }
 
 async function getOwnerWildcardRepo(
   configKv: KVNamespace,
   fullName: string,
+  accountId?: string,
 ): Promise<RepoConfig | null> {
   const slash = fullName.indexOf("/");
   if (slash <= 0) return null;
-  return await getRepo(configKv, `${fullName.slice(0, slash)}/*`);
+  return await getRepo(configKv, `${fullName.slice(0, slash)}/*`, accountId);
 }
 
 export async function listChannels(
   configKv: KVNamespace,
+  accountId?: string,
 ): Promise<ChannelConfig[]> {
-  const ids = (await configKv.get<string[]>(K_ChannelsIndex, "json")) ?? [];
+  const ids = (await configKv.get<string[]>(channelsIndexKey(accountId), "json")) ?? [];
   const out: ChannelConfig[] = [];
   for (const id of ids) {
-    const ch = await getChannel(configKv, id);
+    const ch = await getChannel(configKv, id, accountId);
     if (ch) out.push(ch);
   }
   // Stable ordering by name.
@@ -114,11 +119,12 @@ export async function listChannels(
 
 export async function listRepos(
   configKv: KVNamespace,
+  accountId?: string,
 ): Promise<RepoConfig[]> {
-  const names = (await configKv.get<string[]>(K_ReposIndex, "json")) ?? [];
+  const names = (await configKv.get<string[]>(reposIndexKey(accountId), "json")) ?? [];
   const out: RepoConfig[] = [];
   for (const name of names) {
-    const r = await getRepo(configKv, name);
+    const r = await getRepo(configKv, name, accountId);
     if (r) out.push(r);
   }
   out.sort((a, b) => a.full_name.localeCompare(b.full_name));
@@ -132,12 +138,14 @@ export async function listRepos(
 export async function putChannel(
   configKv: KVNamespace,
   channel: ChannelConfig,
+  accountId?: string,
 ): Promise<void> {
-  await configKv.put(channelKey(channel.id), JSON.stringify(channel));
-  const ids = (await configKv.get<string[]>(K_ChannelsIndex, "json")) ?? [];
+  await configKv.put(channelKey(channel.id, accountId), JSON.stringify(channel));
+  const indexKey = channelsIndexKey(accountId);
+  const ids = (await configKv.get<string[]>(indexKey, "json")) ?? [];
   if (!ids.includes(channel.id)) {
     ids.push(channel.id);
-    await configKv.put(K_ChannelsIndex, JSON.stringify(ids));
+    await configKv.put(indexKey, JSON.stringify(ids));
   }
 }
 
@@ -176,38 +184,44 @@ function telegramTokenFromWebhook(url: string): string | undefined {
 export async function deleteChannel(
   configKv: KVNamespace,
   id: string,
+  accountId?: string,
 ): Promise<void> {
-  await configKv.delete(channelKey(id));
-  const ids = (await configKv.get<string[]>(K_ChannelsIndex, "json")) ?? [];
+  await configKv.delete(channelKey(id, accountId));
+  const indexKey = channelsIndexKey(accountId);
+  const ids = (await configKv.get<string[]>(indexKey, "json")) ?? [];
   const next = ids.filter((x) => x !== id);
   if (next.length !== ids.length) {
-    await configKv.put(K_ChannelsIndex, JSON.stringify(next));
+    await configKv.put(indexKey, JSON.stringify(next));
   }
 }
 
 export async function putRepo(
   configKv: KVNamespace,
   repo: RepoConfig,
+  accountId?: string,
 ): Promise<void> {
-  const key = repoKey(repo.full_name);
+  const key = repoKey(repo.full_name, accountId);
   await configKv.put(key, JSON.stringify(repo));
-  const names = (await configKv.get<string[]>(K_ReposIndex, "json")) ?? [];
+  const indexKey = reposIndexKey(accountId);
+  const names = (await configKv.get<string[]>(indexKey, "json")) ?? [];
   if (!names.includes(repo.full_name.toLowerCase())) {
     names.push(repo.full_name.toLowerCase());
-    await configKv.put(K_ReposIndex, JSON.stringify(names));
+    await configKv.put(indexKey, JSON.stringify(names));
   }
 }
 
 export async function deleteRepo(
   configKv: KVNamespace,
   fullName: string,
+  accountId?: string,
 ): Promise<void> {
-  const key = repoKey(fullName);
+  const key = repoKey(fullName, accountId);
   await configKv.delete(key);
-  const names = (await configKv.get<string[]>(K_ReposIndex, "json")) ?? [];
+  const indexKey = reposIndexKey(accountId);
+  const names = (await configKv.get<string[]>(indexKey, "json")) ?? [];
   const next = names.filter((x) => x !== fullName.toLowerCase());
   if (next.length !== names.length) {
-    await configKv.put(K_ReposIndex, JSON.stringify(next));
+    await configKv.put(indexKey, JSON.stringify(next));
   }
 }
 

@@ -1,7 +1,7 @@
 # Copy to .dev.vars and fill in. Used by `wrangler dev` and local smoke tests.
 # Never commit .dev.vars itself.
 
-# Bearer token for the admin panel API. The browser stores this after login.
+# Bearer token for the JSON admin API.
 # Generate one: pnpm gen:secret
 PANEL_TOKEN=replace-with-a-strong-random-token
 
@@ -9,6 +9,14 @@ PANEL_TOKEN=replace-with-a-strong-random-token
 # The panel lives at https://<worker>/<PANEL_PATH>
 # Generate one: pnpm gen:secret --path
 PANEL_PATH=_panel_replace_me
+
+# GitHub OAuth App credentials for panel login.
+GITHUB_CLIENT_ID=replace-with-github-oauth-client-id
+GITHUB_CLIENT_SECRET=replace-with-github-oauth-client-secret
+
+# Signed browser session secret.
+# Generate one: pnpm gen:secret
+SESSION_SECRET=replace-with-a-strong-random-session-secret
 
 # Local worker URL used by `pnpm test:api` and `pnpm test:webhook`.
 URL=http://localhost:8787

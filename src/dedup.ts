@@ -6,8 +6,8 @@
  * dedup, an intermittent downstream failure (e.g. Feishu 5xx) would spam the
  * chat with duplicates once we recover.
  *
- * Strategy: record the delivery_id in DEDUP_KV with a 10-minute TTL. If we
- * see it again within the window, silently drop.
+ * Strategy: record the account-scoped delivery_id in DEDUP_KV with a 10-minute
+ * TTL. If we see it again within the window, silently drop.
  *
  * Why KV, not a longer window: GitHub's retry schedule is ~minutes apart for
  * the first few attempts. 10 minutes covers the burst. KV reads are ~ms at
@@ -37,27 +37,29 @@ export interface DedupResult {
 export async function checkAndMarkDelivery(
   dedupKv: KVNamespace,
   deliveryId: string | null,
+  accountId?: string,
 ): Promise<DedupResult> {
   if (!deliveryId) {
-    // No delivery id header → can't dedup → don't drop.
     return { duplicate: false };
   }
 
-  const existing = await dedupKv.get(deliveryId);
+  const key = accountId ? `${accountId}:${deliveryId}` : deliveryId;
+  const existing = await dedupKv.get(key);
   if (existing !== null) {
     return { duplicate: true };
   }
 
-  await dedupKv.put(deliveryId, "1", { expirationTtl: DEDUP_TTL_SECONDS });
+  await dedupKv.put(key, "1", { expirationTtl: DEDUP_TTL_SECONDS });
   return { duplicate: false };
 }
 
-export async function countRecentDeliveries(dedupKv: KVNamespace): Promise<number> {
+export async function countRecentDeliveries(dedupKv: KVNamespace, accountId?: string): Promise<number> {
   let cursor: string | undefined;
   let count = 0;
+  const prefix = accountId ? `${accountId}:` : undefined;
 
   do {
-    const page = await dedupKv.list({ cursor, limit: 1000 });
+    const page = await dedupKv.list({ cursor, limit: 1000, prefix });
     count += page.keys.length;
     cursor = page.list_complete ? undefined : page.cursor;
   } while (cursor);
