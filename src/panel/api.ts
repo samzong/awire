@@ -196,14 +196,14 @@ export async function apiChannelTest(env: Env, panelPath: string, chId: string):
 
 export async function apiRepoCreate(env: Env, panelPath: string, req: Request): Promise<string> {
   const form = await parseForm(req);
-  const full_name = formStr(form, "full_name");
+  const full_name = formRepoFullName(form);
   const channel_id = formStr(form, "channel_id");
   const webhook_secret = formStr(form, "webhook_secret") || undefined;
 
-  if (!full_name) return errorCard("Repository (owner/name) is required");
+  if (!full_name) return errorCard("Repository (owner/name or owner/*) is required");
   if (!channel_id) return errorCard("Target channel is required");
-  if (!/^[A-Za-z0-9._-]+\/[A-Za-z0-9._-]+$/.test(full_name)) {
-    return errorCard("Repository must be in 'owner/name' format");
+  if (!/^[A-Za-z0-9._-]+\/(?:[A-Za-z0-9._-]+|\*)$/.test(full_name)) {
+    return errorCard("Repository must be in 'owner/name' or 'owner/*' format");
   }
   const channel = await getChannel(env.CONFIG_KV, channel_id);
   if (!channel) return errorCard("Selected channel does not exist");
@@ -220,6 +220,16 @@ export async function apiRepoCreate(env: Env, panelPath: string, req: Request): 
   };
   await putRepo(env.CONFIG_KV, repo);
   return await reposListBody(env, panelPath);
+}
+
+function formRepoFullName(form: FormData): string {
+  const explicit = formStr(form, "full_name");
+  if (explicit) return explicit;
+  const owner = formStr(form, "owner");
+  if (!owner) return "";
+  if (formStr(form, "route_scope") === "owner") return `${owner}/*`;
+  const repo = formStr(form, "repo_name");
+  return repo ? `${owner}/${repo}` : "";
 }
 
 export async function apiRepoUpdate(env: Env, panelPath: string, req: Request, fullName: string): Promise<string> {

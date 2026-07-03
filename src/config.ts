@@ -4,11 +4,10 @@
  * Storage strategy (KV index pattern):
  *   "channels:index" -> string[]
  *   "channel:<id>"   -> ChannelConfig
- *   "repos:index"    -> string[]            (lowercase "owner/name")
+ *   "repos:index"    -> string[]            (lowercase "owner/name" or "owner/*")
  *   "repo:<full>"    -> RepoConfig
  *
- * The webhook hot path only needs to resolve ONE repo's config. That's a
- * single KV.get — ~ms at the edge.
+ * The webhook hot path first checks an exact repo route, then an owner wildcard.
  *
  * The panel needs to list all repos / channels. For that we keep the index
  * keys. Lists are bounded by the user's fleet size (dozens to hundreds), so
@@ -42,13 +41,12 @@ export interface ResolvedRoute {
 
 /**
  * Resolve a repo to its target channel + event allow-list.
- *
  */
 export async function resolveRoute(
   configKv: KVNamespace,
   repoFullName: string,
 ): Promise<ResolvedRoute | null> {
-  const repoCfg = await getRepo(configKv, repoFullName);
+  const repoCfg = await getRepo(configKv, repoFullName) ?? await getOwnerWildcardRepo(configKv, repoFullName);
   if (repoCfg) {
     const channel = await getChannel(configKv, repoCfg.channel_id);
     if (!channel) return null;
@@ -76,6 +74,15 @@ export async function getRepo(
 ): Promise<RepoConfig | null> {
   const raw = await configKv.get(repoKey(fullName), "json");
   return (raw ?? null) as RepoConfig | null;
+}
+
+async function getOwnerWildcardRepo(
+  configKv: KVNamespace,
+  fullName: string,
+): Promise<RepoConfig | null> {
+  const slash = fullName.indexOf("/");
+  if (slash <= 0) return null;
+  return await getRepo(configKv, `${fullName.slice(0, slash)}/*`);
 }
 
 export async function listChannels(

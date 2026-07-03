@@ -41,7 +41,10 @@ const ChannelSchema = z.object({
 }).openapi("Channel");
 
 const RepoSchema = z.object({
-  full_name: z.string().openapi({ example: "octocat/Hello-World" }),
+  full_name: z.string().openapi({
+    description: "Repository route target. Use owner/name for one repo or owner/* for all repos under an owner.",
+    example: "octocat/*",
+  }),
   channel_id: z.string().openapi({ example: "2b2ed599-697c-4e83-93f4-92f18f5254e9" }),
   webhook_secret: z.string().optional(),
   events: z.array(z.string()).openapi({ example: ["pull_request.opened"] }),
@@ -64,7 +67,10 @@ const ChannelUpdateSchema = z.object({
 }).openapi("ChannelUpdate");
 
 const RepoCreateSchema = z.object({
-  full_name: z.string().trim().regex(/^[A-Za-z0-9._-]+\/[A-Za-z0-9._-]+$/).openapi({ example: "octocat/Hello-World" }),
+  full_name: z.string().trim().regex(/^[A-Za-z0-9._-]+\/(?:[A-Za-z0-9._-]+|\*)$/).openapi({
+    description: "Repository route target. Use owner/name for one repo or owner/* for all repos under an owner.",
+    example: "octocat/*",
+  }),
   channel_id: z.string().trim().min(1).openapi({ example: "2b2ed599-697c-4e83-93f4-92f18f5254e9" }),
   webhook_secret: z.string().trim().min(1).optional(),
   events: z.array(z.string().trim().min(1)).optional().openapi({ example: ["pull_request"] }),
@@ -86,8 +92,8 @@ const ChannelParamsSchema = z.object({
 const RepoParamsSchema = z.object({
   full_name: z.string().openapi({
     param: { name: "full_name", in: "path" },
-    description: "Repository full name. Slashes must be URL-encoded in raw HTTP paths.",
-    example: "octocat/Hello-World",
+    description: "Repository route target. Use owner/name for one repo or owner/* for all repos under an owner. Slashes must be URL-encoded in raw HTTP paths.",
+    example: "octocat/*",
   }),
 });
 
