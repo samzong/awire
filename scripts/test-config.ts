@@ -41,6 +41,14 @@ const exactChannel: ChannelConfig = {
   created_at,
   updated_at,
 };
+const otherAccountChannel: ChannelConfig = {
+  id: "other-account",
+  name: "Other account",
+  kind: "feishu",
+  webhook_url: "https://example.com/other-account",
+  created_at,
+  updated_at,
+};
 
 await putChannel(kv, wildcardChannel);
 await putChannel(kv, exactChannel);
@@ -56,6 +64,19 @@ assert.equal(exact?.channel.id, "exact");
 assert.deepEqual(exact?.events, ["pull_request.opened"]);
 
 assert.equal(await resolveRoute(kv, "other/repo"), null);
+
+await putChannel(kv, exactChannel, "gh_1");
+await putRepo(kv, repo("shared/repo", exactChannel.id, ["pull_request.opened"]), "gh_1");
+await putChannel(kv, otherAccountChannel, "gh_2");
+await putRepo(kv, repo("shared/repo", otherAccountChannel.id, ["issues.opened"]), "gh_2");
+
+const accountOne = await resolveRoute(kv, "shared/repo", "gh_1");
+assert.equal(accountOne?.channel.id, "exact");
+assert.deepEqual(accountOne?.events, ["pull_request.opened"]);
+
+const accountTwo = await resolveRoute(kv, "shared/repo", "gh_2");
+assert.equal(accountTwo?.channel.id, "other-account");
+assert.deepEqual(accountTwo?.events, ["issues.opened"]);
 
 console.log("config route smoke ok");
 

@@ -69,47 +69,47 @@ function now(): string {
 // Fragments (GET)
 // ---------------------------------------------------------------------------
 
-export async function fragmentDashboard(env: Env, _panelPath: string, webhookUrl: string): Promise<string> {
+export async function fragmentDashboard(env: Env, _panelPath: string, webhookUrl: string, accountId: string): Promise<string> {
   const [channels, repos, recentEvents] = await Promise.all([
-    listChannels(env.CONFIG_KV),
-    listRepos(env.CONFIG_KV),
-    countRecentDeliveries(env.DEDUP_KV),
+    listChannels(env.CONFIG_KV, accountId),
+    listRepos(env.CONFIG_KV, accountId),
+    countRecentDeliveries(env.DEDUP_KV, accountId),
   ]);
   const { renderDashboardFragment } = await import("./fragments/dashboard.ts");
   return renderDashboardFragment({ channels, repos, recentEvents, webhookUrl });
 }
 
-export async function fragmentChannels(env: Env, panelPath: string): Promise<string> {
-  return await channelsTableBody(env, panelPath);
+export async function fragmentChannels(env: Env, panelPath: string, accountId: string): Promise<string> {
+  return await channelsTableBody(env, panelPath, accountId);
 }
 
 export function fragmentChannelNew(panelPath: string): string {
   return renderChannelForm({ panelPath });
 }
 
-export async function fragmentChannelEdit(env: Env, panelPath: string, id: string): Promise<string> {
-  const ch = await getChannel(env.CONFIG_KV, id);
+export async function fragmentChannelEdit(env: Env, panelPath: string, id: string, accountId: string): Promise<string> {
+  const ch = await getChannel(env.CONFIG_KV, id, accountId);
   if (!ch) return notFoundCard("Channel not found");
   return renderChannelForm({ panelPath, channel: ch });
 }
 
-export async function fragmentRepos(env: Env, panelPath: string): Promise<string> {
+export async function fragmentRepos(env: Env, panelPath: string, accountId: string): Promise<string> {
   const [repos, channels] = await Promise.all([
-    listRepos(env.CONFIG_KV),
-    listChannels(env.CONFIG_KV),
+    listRepos(env.CONFIG_KV, accountId),
+    listChannels(env.CONFIG_KV, accountId),
   ]);
   return renderReposFragment({ panelPath, repos, channels });
 }
 
-export async function fragmentRepoNewAsync(env: Env, panelPath: string): Promise<string> {
-  const channels = await listChannels(env.CONFIG_KV);
+export async function fragmentRepoNewAsync(env: Env, panelPath: string, accountId: string): Promise<string> {
+  const channels = await listChannels(env.CONFIG_KV, accountId);
   return renderRepoForm({ panelPath, channels });
 }
 
-export async function fragmentRepoEdit(env: Env, panelPath: string, fullName: string): Promise<string> {
+export async function fragmentRepoEdit(env: Env, panelPath: string, fullName: string, accountId: string): Promise<string> {
   const [repo, channels] = await Promise.all([
-    getRepo(env.CONFIG_KV, fullName),
-    listChannels(env.CONFIG_KV),
+    getRepo(env.CONFIG_KV, fullName, accountId),
+    listChannels(env.CONFIG_KV, accountId),
   ]);
   if (!repo) return notFoundCard("Repo not found");
   return renderRepoForm({ panelPath, channels, repo });
@@ -119,7 +119,7 @@ export async function fragmentRepoEdit(env: Env, panelPath: string, fullName: st
 // Mutations (POST / PUT via _method / DELETE)
 // ---------------------------------------------------------------------------
 
-export async function apiChannelCreate(env: Env, panelPath: string, req: Request): Promise<string> {
+export async function apiChannelCreate(env: Env, panelPath: string, req: Request, accountId: string): Promise<string> {
   const form = await parseForm(req);
   const name = formStr(form, "name");
   const kind = formChannelKind(formStr(form, "kind") || "feishu");
@@ -142,13 +142,13 @@ export async function apiChannelCreate(env: Env, panelPath: string, req: Request
       : { ...base, kind, webhook_url };
   }
 
-  await putChannel(env.CONFIG_KV, ch);
-  return await channelsTableBody(env, panelPath);
+  await putChannel(env.CONFIG_KV, ch, accountId);
+  return await channelsTableBody(env, panelPath, accountId);
 }
 
-export async function apiChannelUpdate(env: Env, panelPath: string, req: Request, chId: string): Promise<string> {
+export async function apiChannelUpdate(env: Env, panelPath: string, req: Request, chId: string, accountId: string): Promise<string> {
   const form = await parseForm(req);
-  const existing = await getChannel(env.CONFIG_KV, chId);
+  const existing = await getChannel(env.CONFIG_KV, chId, accountId);
   if (!existing) return notFoundCard("Channel not found");
 
   const name = formStr(form, "name");
@@ -173,16 +173,16 @@ export async function apiChannelUpdate(env: Env, panelPath: string, req: Request
       : { ...base, kind, webhook_url };
   }
 
-  await putChannel(env.CONFIG_KV, updated);
-  return await channelsTableBody(env, panelPath);
+  await putChannel(env.CONFIG_KV, updated, accountId);
+  return await channelsTableBody(env, panelPath, accountId);
 }
 
-export async function apiChannelDelete(env: Env, panelPath: string, chId: string): Promise<string> {
-  const existing = await getChannel(env.CONFIG_KV, chId);
+export async function apiChannelDelete(env: Env, panelPath: string, chId: string, accountId: string): Promise<string> {
+  const existing = await getChannel(env.CONFIG_KV, chId, accountId);
   if (!existing) return notFoundCard("Channel not found");
   const [channels, repos] = await Promise.all([
-    listChannels(env.CONFIG_KV),
-    listRepos(env.CONFIG_KV),
+    listChannels(env.CONFIG_KV, accountId),
+    listRepos(env.CONFIG_KV, accountId),
   ]);
   const usages = channelUsages(channels, repos);
   const usage = usages[chId];
@@ -194,13 +194,13 @@ export async function apiChannelDelete(env: Env, panelPath: string, chId: string
       notice: `Channel "${existing.name}" is still used by ${usage.label}. Remove those routes first.`,
     });
   }
-  await deleteChannel(env.CONFIG_KV, chId);
-  return await channelsTableBody(env, panelPath);
+  await deleteChannel(env.CONFIG_KV, chId, accountId);
+  return await channelsTableBody(env, panelPath, accountId);
 }
 
-export async function apiChannelTest(env: Env, panelPath: string, chId: string): Promise<string> {
+export async function apiChannelTest(env: Env, panelPath: string, chId: string, accountId: string): Promise<string> {
   void panelPath;
-  const ch = await getChannel(env.CONFIG_KV, chId);
+  const ch = await getChannel(env.CONFIG_KV, chId, accountId);
   if (!ch) return notFoundCard("Channel not found");
 
   const result = await deliver(
@@ -327,7 +327,7 @@ function telegramChatPicker(chats: TelegramChatOption[], message?: string): stri
   `;
 }
 
-export async function apiRepoCreate(env: Env, panelPath: string, req: Request): Promise<string> {
+export async function apiRepoCreate(env: Env, panelPath: string, req: Request, accountId: string): Promise<string> {
   const form = await parseForm(req);
   const full_name = formRepoFullName(form);
   const channel_id = formStr(form, "channel_id");
@@ -338,7 +338,7 @@ export async function apiRepoCreate(env: Env, panelPath: string, req: Request): 
   if (!/^[A-Za-z0-9._-]+\/(?:[A-Za-z0-9._-]+|\*)$/.test(full_name)) {
     return errorCard("Repository must be in 'owner/name' or 'owner/*' format");
   }
-  const channel = await getChannel(env.CONFIG_KV, channel_id);
+  const channel = await getChannel(env.CONFIG_KV, channel_id, accountId);
   if (!channel) return errorCard("Selected channel does not exist");
 
   const events = normalizeEventKeys(formAll(form, "events"));
@@ -351,8 +351,8 @@ export async function apiRepoCreate(env: Env, panelPath: string, req: Request): 
     created_at: now(),
     updated_at: now(),
   };
-  await putRepo(env.CONFIG_KV, repo);
-  return await reposListBody(env, panelPath);
+  await putRepo(env.CONFIG_KV, repo, accountId);
+  return await reposListBody(env, panelPath, accountId);
 }
 
 function formRepoFullName(form: FormData): string {
@@ -365,14 +365,14 @@ function formRepoFullName(form: FormData): string {
   return repo ? `${owner}/${repo}` : "";
 }
 
-export async function apiRepoUpdate(env: Env, panelPath: string, req: Request, fullName: string): Promise<string> {
-  const existing = await getRepo(env.CONFIG_KV, fullName);
+export async function apiRepoUpdate(env: Env, panelPath: string, req: Request, fullName: string, accountId: string): Promise<string> {
+  const existing = await getRepo(env.CONFIG_KV, fullName, accountId);
   if (!existing) return notFoundCard("Repo not found");
   const form = await parseForm(req);
 
   const channel_id = formStr(form, "channel_id") || existing.channel_id;
   const webhook_secret = formStr(form, "webhook_secret") || undefined;
-  const channel = await getChannel(env.CONFIG_KV, channel_id);
+  const channel = await getChannel(env.CONFIG_KV, channel_id, accountId);
   if (!channel) return errorCard("Selected channel does not exist");
 
   const events = normalizeEventKeys(formAll(form, "events"));
@@ -384,13 +384,13 @@ export async function apiRepoUpdate(env: Env, panelPath: string, req: Request, f
     events,
     updated_at: now(),
   };
-  await putRepo(env.CONFIG_KV, updated);
-  return await reposListBody(env, panelPath);
+  await putRepo(env.CONFIG_KV, updated, accountId);
+  return await reposListBody(env, panelPath, accountId);
 }
 
-export async function apiRepoDelete(env: Env, panelPath: string, fullName: string): Promise<string> {
-  await deleteRepo(env.CONFIG_KV, fullName);
-  return await reposListBody(env, panelPath);
+export async function apiRepoDelete(env: Env, panelPath: string, fullName: string, accountId: string): Promise<string> {
+  await deleteRepo(env.CONFIG_KV, fullName, accountId);
+  return await reposListBody(env, panelPath, accountId);
 }
 
 /** Health-check endpoint used by the login form to validate the token. */
@@ -402,18 +402,18 @@ export function apiWhoami(): string {
 // Re-render helpers (return just the swap target)
 // ---------------------------------------------------------------------------
 
-async function channelsTableBody(env: Env, panelPath: string): Promise<string> {
+async function channelsTableBody(env: Env, panelPath: string, accountId: string): Promise<string> {
   const [channels, repos] = await Promise.all([
-    listChannels(env.CONFIG_KV),
-    listRepos(env.CONFIG_KV),
+    listChannels(env.CONFIG_KV, accountId),
+    listRepos(env.CONFIG_KV, accountId),
   ]);
   return renderChannelsFragment({ panelPath, channels, usages: channelUsages(channels, repos) });
 }
 
-async function reposListBody(env: Env, panelPath: string): Promise<string> {
+async function reposListBody(env: Env, panelPath: string, accountId: string): Promise<string> {
   const [repos, channels] = await Promise.all([
-    listRepos(env.CONFIG_KV),
-    listChannels(env.CONFIG_KV),
+    listRepos(env.CONFIG_KV, accountId),
+    listChannels(env.CONFIG_KV, accountId),
   ]);
   return renderReposFragment({ panelPath, repos, channels });
 }

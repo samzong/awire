@@ -15,10 +15,10 @@
 
 /**
  * CONFIG_KV layout:
- *   "channels:index"    -> ChannelConfig["id"][]
- *   "channel:<id>"      -> ChannelConfig
- *   "repos:index"       -> string[]   (lowercase "owner/name")
- *   "repo:<owner/name>" -> RepoConfig
+ *   "account:<id>:channels:index"    -> ChannelConfig["id"][]
+ *   "account:<id>:channel:<id>"      -> ChannelConfig
+ *   "account:<id>:repos:index"       -> string[]   (lowercase "owner/name")
+ *   "account:<id>:repo:<owner/name>" -> RepoConfig
  *
  * DEDUP_KV layout:
  *   "<delivery_id>"     -> "1"  (TTL 600s)
@@ -297,6 +297,9 @@ interface Env {
   DEDUP_KV: KVNamespace;
   PANEL_TOKEN: string;
   PANEL_PATH: string;
+  GITHUB_CLIENT_ID: string;
+  GITHUB_CLIENT_SECRET: string;
+  SESSION_SECRET: string;
 }
 
 /** Re-exported so other modules can `import type { Env }`. */

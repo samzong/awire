@@ -145,7 +145,16 @@ function navItem(
 }
 
 /** Login page — standalone (not the panel shell). */
-export function renderLoginPage(panelPath: string): string {
+export function renderLoginPage(panelPath: string, githubConfigured: boolean): string {
+  const action = githubConfigured
+    ? `<a href="${panelPath}/auth/github"
+            class="block w-full text-center bg-accent-500 hover:bg-accent-400 text-white font-medium rounded-lg px-3.5 py-2.5 text-sm transition-colors shadow-sm">
+         Sign in with GitHub
+       </a>`
+    : `<button type="button" disabled
+               class="w-full bg-ink-700 text-ink-400 font-medium rounded-lg px-3.5 py-2.5 text-sm cursor-not-allowed">
+         GitHub login not configured
+       </button>`;
   return `<!DOCTYPE html>
 <html lang="en">
 <head>
@@ -159,35 +168,19 @@ export function renderLoginPage(panelPath: string): string {
   <div class="w-full max-w-sm mx-auto px-6">
     <div class="text-center mb-8">
       <h1 class="text-2xl font-semibold text-ink-100">awire</h1>
-      <p class="text-sm text-ink-400 mt-1">Sign in with your panel token</p>
+      <p class="text-sm text-ink-400 mt-1">Sign in to your workspace</p>
     </div>
-    <form id="login-form" action="${panelPath}/login" method="post" class="space-y-4">
-      <div>
-        <label class="block text-xs font-medium text-ink-400 mb-1.5 uppercase tracking-wide">Panel token</label>
-        <input type="password" name="token" autocomplete="current-password" required
-               class="w-full bg-white border border-ink-700 rounded-lg px-3.5 py-2.5 text-ink-100 placeholder-ink-600 focus:outline-none focus:ring-2 focus:ring-accent-500 focus:border-transparent font-mono text-sm"
-               placeholder="••••••••••••••••" />
-      </div>
-      <button id="login-btn" type="submit"
-              class="w-full bg-accent-500 hover:bg-accent-400 disabled:opacity-60 disabled:cursor-not-allowed text-white font-medium rounded-lg px-3.5 py-2.5 text-sm transition-colors shadow-sm">
-        <span id="login-btn-text">Sign in</span>
-      </button>
+    <div class="space-y-4">
+      ${action}
       <p id="err" class="text-xs text-red-500 text-center min-h-[1rem]"></p>
-    </form>
+    </div>
   </div>
   <script>
-    const form = document.getElementById('login-form');
-    const btn = document.getElementById('login-btn');
-    const btnText = document.getElementById('login-btn-text');
     const params = new URLSearchParams(window.location.search);
     const errEl = document.getElementById('err');
-    if (params.get('err') === '1') errEl.textContent = 'Invalid token — check PANEL_TOKEN secret';
-    form.addEventListener('submit', () => {
-      const tokenInput = form.elements.namedItem('token');
-      if (tokenInput) tokenInput.value = tokenInput.value.trim();
-      btn.disabled = true;
-      btnText.textContent = 'Signing in…';
-    });
+    if (params.get('err') === 'config') errEl.textContent = 'GitHub login is not configured';
+    if (params.get('err') === 'oauth') errEl.textContent = 'GitHub login failed';
+    if (params.get('err') === '1') errEl.textContent = 'Session expired';
   </script>
 </body>
 </html>`;

@@ -22,6 +22,8 @@ const URL_ = process.env.URL ?? "http://localhost:8787";
 const SECRET = process.env.SECRET ?? "";
 const EVENT = process.env.EVENT ?? "issues_opened";
 const DELIVERY = process.env.DELIVERY ?? `smoke-${Date.now()}`;
+const ACCOUNT_ID = process.env.ACCOUNT_ID ?? "";
+const HOOK_PATH = `/hook/github${ACCOUNT_ID ? `/${encodeURIComponent(ACCOUNT_ID)}` : ""}`;
 
 if (!SECRET) {
   console.error("Set SECRET=<repo webhook secret> in .dev.vars or env");
@@ -52,11 +54,11 @@ async function sign(body) {
 const body = loadSample(EVENT);
 const signature = await sign(body);
 
-console.log(`→ POST ${URL_}/hook/github`);
+console.log(`→ POST ${URL_}${HOOK_PATH}`);
 console.log(`  X-GitHub-Event: ${EVENT.replace(/_.+$/, "")}`);
 console.log(`  X-GitHub-Delivery: ${DELIVERY}`);
 
-const resp = await fetch(`${URL_}/hook/github`, {
+const resp = await fetch(`${URL_}${HOOK_PATH}`, {
   method: "POST",
   headers: {
     "Content-Type": "application/json",
