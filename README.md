@@ -92,10 +92,9 @@ your `PANEL_TOKEN`. From the panel:
    Slack use webhook URLs; Telegram uses a bot token plus `chat_id`. Click
    **Discover chats** after the bot has seen a message, then click **Test** to
    verify.
-2. **Repos** → *Add repo* → enter `owner/name`, pick a channel, optionally add
-   that repo's GitHub webhook secret, and check the events you want forwarded.
-3. In **Repos**, use the **Default** row to optionally route repos without an
-   explicit config.
+2. **Repos** → *Add repo* → choose account-wide or single-repo routing, pick a
+   channel, optionally add a GitHub webhook secret, and check the events you
+   want forwarded.
 
 ### 7. Configure each GitHub repository
 

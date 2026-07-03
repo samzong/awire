@@ -39,6 +39,7 @@
     "gen:openapi": "tsx scripts/gen-openapi.ts",
     "check:openapi": "tsx scripts/gen-openapi.ts --check",
     "gen:secret": "node scripts/gen-secret.mjs",
+    "test:config": "tsx scripts/test-config.ts",
     "test:api": "node --env-file-if-exists=.dev.vars scripts/test-json-api.mjs",
     "test:delivery": "tsx scripts/test-delivery.ts",
     "test:slack": "node --env-file-if-exists=.dev.vars --import tsx scripts/test-slack-cards.ts",

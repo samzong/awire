@@ -168,12 +168,16 @@ function repoRow(
     : repo.events.length === 0
       ? "No events"
       : `${repo.events.length} rule${repo.events.length === 1 ? "" : "s"}`;
+  const repoName = escapeHtml(repo.full_name);
+  const repoLabel = repo.full_name.endsWith("/*")
+    ? `<span class="text-sm font-semibold text-ink-100 font-mono">${repoName}</span>`
+    : `<a href="https://github.com/${repoName}" target="_blank" rel="noreferrer"
+           class="text-sm font-semibold text-ink-100 hover:text-accent-300">${repoName}</a>`;
 
   return `
     <tr class="border-b border-ink-850 hover:bg-ink-850/50 transition-colors">
       <td class="px-5 py-3.5">
-        <a href="https://github.com/${escapeHtml(repo.full_name)}" target="_blank" rel="noreferrer"
-           class="text-sm font-semibold text-ink-100 hover:text-accent-300">${escapeHtml(repo.full_name)}</a>
+        ${repoLabel}
       </td>
       <td class="px-5 py-3.5 text-sm text-ink-200">${ch ? escapeHtml(ch.name) : `<span class="text-red-600">missing channel</span>`}</td>
       <td class="px-5 py-3.5 text-sm text-ink-200">${escapeHtml(eventsSummary)}</td>
@@ -228,6 +232,40 @@ export function renderRepoForm(opts: {
       </div>
     </div>
   `).join("");
+  const syncScope = "const f=this.form,r=f.querySelector('[data-repo-name]'),i=f.querySelector('[name=repo_name]'),on=this.value==='repository';r.classList.toggle('opacity-60',!on);i.disabled=!on;i.required=on;";
+  const repoFieldsHtml = isEdit
+    ? `
+      <div>
+        <label class="block text-xs font-medium text-ink-400 mb-1.5 uppercase tracking-wide">Repository <span class="text-ink-600 normal-case">(owner/name or owner/*)</span></label>
+        <input type="text" name="full_name" required readonly value="${escapeHtml(v.full_name ?? "")}"
+               class="w-full bg-ink-850 border border-ink-700 rounded-lg px-3.5 py-2 text-sm text-ink-100 placeholder-ink-600 focus:outline-none focus:ring-2 focus:ring-accent-500 focus:border-transparent font-mono opacity-60" />
+      </div>`
+    : `
+      <div>
+        <label class="block text-xs font-medium text-ink-400 mb-1.5 uppercase tracking-wide">Scope</label>
+        <div class="grid grid-cols-2 gap-2">
+          <label class="flex items-center gap-2 rounded-lg border border-ink-700 bg-ink-850 px-3 py-2 text-sm text-ink-100 cursor-pointer">
+            <input type="radio" name="route_scope" value="owner" checked onchange="${syncScope}" />
+            Account
+          </label>
+          <label class="flex items-center gap-2 rounded-lg border border-ink-700 bg-ink-850 px-3 py-2 text-sm text-ink-100 cursor-pointer">
+            <input type="radio" name="route_scope" value="repository" onchange="${syncScope}" />
+            Repository
+          </label>
+        </div>
+      </div>
+      <div class="grid grid-cols-2 gap-3">
+        <div>
+          <label class="block text-xs font-medium text-ink-400 mb-1.5 uppercase tracking-wide">Account</label>
+          <input type="text" name="owner" required placeholder="samzong"
+                 class="w-full bg-ink-850 border border-ink-700 rounded-lg px-3.5 py-2 text-sm text-ink-100 placeholder-ink-600 focus:outline-none focus:ring-2 focus:ring-accent-500 focus:border-transparent font-mono" />
+        </div>
+        <div data-repo-name class="opacity-60">
+          <label class="block text-xs font-medium text-ink-400 mb-1.5 uppercase tracking-wide">Repository</label>
+          <input type="text" name="repo_name" disabled placeholder="awire"
+                 class="w-full bg-ink-850 border border-ink-700 rounded-lg px-3.5 py-2 text-sm text-ink-100 placeholder-ink-600 focus:outline-none focus:ring-2 focus:ring-accent-500 focus:border-transparent font-mono disabled:cursor-not-allowed disabled:opacity-60" />
+        </div>
+      </div>`;
 
   const body = `
     <form hx-post="${escapeHtml(action)}"
@@ -235,12 +273,7 @@ export function renderRepoForm(opts: {
           hx-swap="innerHTML"
           class="space-y-4">
       ${methodLine}
-      <div>
-        <label class="block text-xs font-medium text-ink-400 mb-1.5 uppercase tracking-wide">Repository <span class="text-ink-600 normal-case">(owner/name)</span></label>
-        <input type="text" name="full_name" required ${isEdit ? "readonly" : ""} value="${escapeHtml(v.full_name ?? "")}"
-               placeholder="octocat/Hello-World"
-               class="w-full bg-ink-850 border border-ink-700 rounded-lg px-3.5 py-2 text-sm text-ink-100 placeholder-ink-600 focus:outline-none focus:ring-2 focus:ring-accent-500 focus:border-transparent font-mono ${isEdit ? "opacity-60" : ""}" />
-      </div>
+      ${repoFieldsHtml}
       <div>
         <label class="block text-xs font-medium text-ink-400 mb-1.5 uppercase tracking-wide">Forward to channel</label>
         <select name="channel_id" required

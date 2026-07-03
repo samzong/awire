@@ -133,7 +133,7 @@ var Specs = []runtime.CommandSpec{
 		Method:      "DELETE",
 		PathTpl:     "/api/v1/repos/{full_name}",
 		Params: []runtime.ParamSpec{
-			{Name: "full_name", Flag: "full_name", In: "path", GoType: "string", Help: "Repository full name. Slashes must be URL-encoded in raw HTTP paths. (path, required)", Required: true},
+			{Name: "full_name", Flag: "full_name", In: "path", GoType: "string", Help: "Repository route target. Use owner/name for one repo or owner/* for all repos under an owner. Slashes must be URL-encoded in raw HTTP paths. (path, required)", Required: true},
 		},
 		Output: runtime.OutputHints{ResponseMediaType: "application/json"},
 	},
@@ -145,7 +145,7 @@ var Specs = []runtime.CommandSpec{
 		Method:      "GET",
 		PathTpl:     "/api/v1/repos/{full_name}",
 		Params: []runtime.ParamSpec{
-			{Name: "full_name", Flag: "full_name", In: "path", GoType: "string", Help: "Repository full name. Slashes must be URL-encoded in raw HTTP paths. (path, required)", Required: true},
+			{Name: "full_name", Flag: "full_name", In: "path", GoType: "string", Help: "Repository route target. Use owner/name for one repo or owner/* for all repos under an owner. Slashes must be URL-encoded in raw HTTP paths. (path, required)", Required: true},
 		},
 		Output: runtime.OutputHints{ResponseMediaType: "application/json"},
 	},
@@ -166,7 +166,7 @@ var Specs = []runtime.CommandSpec{
 		Method:      "PUT",
 		PathTpl:     "/api/v1/repos/{full_name}",
 		Params: []runtime.ParamSpec{
-			{Name: "full_name", Flag: "full_name", In: "path", GoType: "string", Help: "Repository full name. Slashes must be URL-encoded in raw HTTP paths. (path, required)", Required: true},
+			{Name: "full_name", Flag: "full_name", In: "path", GoType: "string", Help: "Repository route target. Use owner/name for one repo or owner/* for all repos under an owner. Slashes must be URL-encoded in raw HTTP paths. (path, required)", Required: true},
 		},
 		RequestBody: &runtime.RequestBody{
 			Required:  true,

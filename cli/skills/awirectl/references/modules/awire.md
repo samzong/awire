@@ -107,7 +107,7 @@ awirectl repos create \
 - Auth: required
 - Body: none
 - Flags:
-  - `--full_name` (path, required): Repository full name. Slashes must be URL-encoded in raw HTTP paths.
+  - `--full_name` (path, required): Repository route target. Use owner/name for one repo or owner/* for all repos under an owner. Slashes must be URL-encoded in raw HTTP paths.
 - Output: response media `application/json`
 
 ### `awirectl repos get`
@@ -117,7 +117,7 @@ awirectl repos create \
 - Auth: required
 - Body: none
 - Flags:
-  - `--full_name` (path, required): Repository full name. Slashes must be URL-encoded in raw HTTP paths.
+  - `--full_name` (path, required): Repository route target. Use owner/name for one repo or owner/* for all repos under an owner. Slashes must be URL-encoded in raw HTTP paths.
 - Output: response media `application/json`
 
 ### `awirectl repos list`
@@ -136,7 +136,7 @@ awirectl repos create \
 - Auth: required
 - Body: required; media type `application/json`
 - Flags:
-  - `--full_name` (path, required): Repository full name. Slashes must be URL-encoded in raw HTTP paths.
+  - `--full_name` (path, required): Repository route target. Use owner/name for one repo or owner/* for all repos under an owner. Slashes must be URL-encoded in raw HTTP paths.
 - Output: response media `application/json`
 
 ## System
