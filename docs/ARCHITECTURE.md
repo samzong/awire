@@ -10,8 +10,8 @@ awire is a single Cloudflare Worker. GitHub posts a webhook to `/hook/github`;
 the worker verifies the signature, deduplicates by delivery id, looks up the
 repo's routing config in KV, filters by event, renders an internal card, and
 posts it to the target delivery channel. Configuration lives in a KV
-namespace; dedup markers live in a second KV namespace. An HTMX panel at a
-non-guessable path lets the operator manage channels and repos. There is no
+namespace; dedup markers live in a second KV namespace. An HTMX panel lets
+the operator manage channels and repos. There is no
 database, no frontend build, no message queue — those are V2.
 
 ## Request lifecycle
@@ -124,13 +124,10 @@ practical risk is low (network jitter dominates), but the constant-time
 version is free and the right default for an open-source project that will
 be audited.
 
-### Panel at a non-guessable path
+### Panel auth
 
-The panel sits at `/<PANEL_PATH>` where `PANEL_PATH` is a Worker secret
-like `_panel_k4m9z2x7`. This is not authentication — it is obscurity that
-reduces attack surface. Real auth is the Bearer token / session cookie.
-Both are required: a request to `/<PANEL_PATH>` without a valid token still
-gets a login page, not the dashboard.
+The panel sits at `/`. Real auth is the Bearer token / session cookie. A
+request without a valid token gets a login page, not the dashboard.
 
 ## Module map
 

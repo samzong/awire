@@ -4,12 +4,12 @@
  * Three route families:
  *
  *   POST /hook/github/<account> GitHub webhook (no auth — verified by HMAC)
- *   GET  /                       Health check (public)
+ *   GET  /health                 Health check (public)
  *   *    /api/v1/*               JSON management API (Bearer token)
- *   GET  /<PANEL_PATH>           Panel shell (GitHub OAuth session)
- *   GET  /<PANEL_PATH>/<page>    Panel pages (fragment swap)
- *   GET  /<PANEL_PATH>/fragments/*
- *   *    /<PANEL_PATH>/api/*
+ *   GET  /                       Panel login (GitHub OAuth session)
+ *   GET  /<page>                 Panel pages (fragment swap)
+ *   GET  /fragments/*
+ *   *    /api/*
  *
  * The management JSON API is mounted as a small Hono app so its route
  * definitions can also generate the OpenAPI document used by Lathe.
@@ -48,7 +48,7 @@ export default {
       // -------------------------------------------------------------------
       // Health
       // -------------------------------------------------------------------
-      if (path === "/" && method === "GET") {
+      if (path === "/health" && method === "GET") {
         return json({ ok: true, service: "awire" });
       }
 
@@ -63,17 +63,8 @@ export default {
         return await handleJsonApi(req, env);
       }
 
-      // -------------------------------------------------------------------
-      // Panel — everything under PANEL_PATH
-      // -------------------------------------------------------------------
-      const panelPath = env.PANEL_PATH?.replace(/^\/+|\/+$/g, "") ?? "";
-      if (!panelPath) {
-        return json({ error: "panel not configured" }, 500);
-      }
-
-      // Match exact "/<PANEL_PATH>" or "/<PANEL_PATH>/...".
-      if (path === `/${panelPath}` || path.startsWith(`/${panelPath}/`)) {
-        return await handlePanel(req, env, path, panelPath);
+      if (isPanelPath(path)) {
+        return await handlePanel(req, env, path);
       }
 
       return json({ error: "not found" }, 404);
@@ -234,10 +225,10 @@ function parseWebhookPayload(rawBody: ArrayBuffer, contentType: string | null): 
 // PANEL HANDLER
 // ===========================================================================
 
-async function handlePanel(req: Request, env: Env, path: string, panelPath: string): Promise<Response> {
+async function handlePanel(req: Request, env: Env, path: string): Promise<Response> {
   const method = req.method.toUpperCase();
-  // Strip leading "/<PANEL_PATH>" → remainder ("" or "/dashboard" etc.)
-  const rest = path.slice(`/${panelPath}`.length);
+  const panelPath = "";
+  const rest = path;
   const baseUrl = new URL(req.url);
 
   // -------------------------------------------------------------------------
@@ -247,19 +238,19 @@ async function handlePanel(req: Request, env: Env, path: string, panelPath: stri
     if (method === "GET") {
       const session = await currentSession(req, env);
       if (session) {
-        return Response.redirect(new URL(`/${panelPath}/dashboard`, baseUrl).toString(), 302);
+        return Response.redirect(new URL("/dashboard", baseUrl).toString(), 302);
       }
-      return html(renderLoginPage(`/${panelPath}`, hasGitHubOAuthConfig(env)));
+      return html(renderLoginPage(panelPath, hasGitHubOAuthConfig(env)));
     }
     return json({ error: "method not allowed" }, 405);
   }
 
   if (rest === "/auth/github" && method === "GET") {
     if (!hasGitHubOAuthConfig(env)) {
-      return Response.redirect(new URL(`/${panelPath}?err=config`, baseUrl).toString(), 303);
+      return Response.redirect(new URL("/?err=config", baseUrl).toString(), 303);
     }
     const state = randomOAuthState();
-    const redirectUri = new URL(`/${panelPath}/auth/github/callback`, baseUrl).toString();
+    const redirectUri = new URL("/auth/github/callback", baseUrl).toString();
     const headers = new Headers({
       Location: buildGitHubAuthorizeUrl(env, redirectUri, state),
       "Set-Cookie": buildOAuthStateCookieHeader(state, panelPath),
@@ -271,11 +262,11 @@ async function handlePanel(req: Request, env: Env, path: string, panelPath: stri
     const state = baseUrl.searchParams.get("state") ?? "";
     const code = baseUrl.searchParams.get("code") ?? "";
     if (!code || !verifyOAuthState(req, state) || !hasGitHubOAuthConfig(env)) {
-      return Response.redirect(new URL(`/${panelPath}?err=oauth`, baseUrl).toString(), 303);
+      return Response.redirect(new URL("/?err=oauth", baseUrl).toString(), 303);
     }
-    const redirectUri = new URL(`/${panelPath}/auth/github/callback`, baseUrl).toString();
+    const redirectUri = new URL("/auth/github/callback", baseUrl).toString();
     const headers = new Headers({
-      Location: new URL(`/${panelPath}/dashboard`, baseUrl).toString(),
+      Location: new URL("/dashboard", baseUrl).toString(),
     });
     headers.append("Set-Cookie", clearOAuthStateCookieHeader(panelPath));
     try {
@@ -283,14 +274,14 @@ async function handlePanel(req: Request, env: Env, path: string, panelPath: stri
       headers.append("Set-Cookie", await buildSignedSessionCookieHeader(user, env.SESSION_SECRET, panelPath));
       return new Response(null, { status: 303, headers });
     } catch {
-      headers.set("Location", new URL(`/${panelPath}?err=oauth`, baseUrl).toString());
+      headers.set("Location", new URL("/?err=oauth", baseUrl).toString());
       return new Response(null, { status: 303, headers });
     }
   }
 
   if (rest === "/logout" && method === "POST") {
     const headers = new Headers({
-      Location: new URL(`/${panelPath}`, baseUrl).toString(),
+      Location: new URL("/", baseUrl).toString(),
       "Set-Cookie": clearSessionCookieHeader(panelPath),
     });
     headers.append("Set-Cookie", clearOAuthStateCookieHeader(panelPath));
@@ -305,8 +296,7 @@ async function handlePanel(req: Request, env: Env, path: string, panelPath: stri
     const isHtmx = req.headers.get("HX-Request") === "true";
     const acceptsHtml = (req.headers.get("Accept") ?? "").includes("text/html");
     if (!isHtmx && acceptsHtml) {
-      // Browser navigation without a session → login page.
-      return Response.redirect(new URL(`/${panelPath}`, baseUrl).toString(), 302);
+      return Response.redirect(new URL("/", baseUrl).toString(), 302);
     }
     return json({ error: "unauthorized" }, 401);
   }
@@ -317,9 +307,9 @@ async function handlePanel(req: Request, env: Env, path: string, panelPath: stri
   if (method === "GET" && (rest === "/dashboard" || rest === "/repos" || rest === "/channels")) {
     const page = rest.slice(1) as NavKey;
     const webhookUrl = buildWebhookUrl(req, session.accountId);
-    const content = await pageFragment(env, page, `/${panelPath}`, webhookUrl, session.accountId);
+    const content = await pageFragment(env, page, panelPath, webhookUrl, session.accountId);
     return html(renderPanelShell({
-      panelPath: `/${panelPath}`,
+      panelPath,
       activeNav: page,
       initialContent: content,
     }));
@@ -329,14 +319,14 @@ async function handlePanel(req: Request, env: Env, path: string, panelPath: stri
   // Fragments (HTMX partial swaps)
   // -------------------------------------------------------------------------
   if (method === "GET" && rest.startsWith("/fragments/")) {
-    return html(await handleFragment(req, env, rest.slice("/fragments/".length), `/${panelPath}`, session.accountId));
+    return html(await handleFragment(req, env, rest.slice("/fragments/".length), panelPath, session.accountId));
   }
 
   // -------------------------------------------------------------------------
   // API (mutations)
   // -------------------------------------------------------------------------
   if (rest.startsWith("/api/")) {
-    return html(await handleApi(req, env, rest.slice("/api/".length), `/${panelPath}`, session.accountId));
+    return html(await handleApi(req, env, rest.slice("/api/".length), panelPath, session.accountId));
   }
 
   return json({ error: "not found" }, 404);
@@ -363,7 +353,7 @@ async function handleFragment(req: Request, env: Env, sub: string, panelPath: st
     return await api.fragmentChannelEdit(env, panelPath, id, accountId);
   }
   if (sub === "repos") return await api.fragmentRepos(env, panelPath, accountId);
-  if (sub === "repos/new") return await api.fragmentRepoNewAsync(env, panelPath, accountId);
+  if (sub === "repos/new") return await api.fragmentRepoNewAsync(env, panelPath, accountId, webhookUrl);
   if (sub.startsWith("repos/") && sub.endsWith("/edit")) {
     const full = decodeURIComponent(sub.slice("repos/".length, -"/edit".length));
     return await api.fragmentRepoEdit(env, panelPath, full, accountId);
@@ -426,6 +416,18 @@ async function currentSession(req: Request, env: Env): Promise<PanelSession | nu
 function buildWebhookUrl(req: Request, accountId?: string): string {
   const url = new URL(req.url);
   return `${url.origin}/hook/github${accountId ? `/${encodeURIComponent(accountId)}` : ""}`;
+}
+
+function isPanelPath(path: string): boolean {
+  return path === "/"
+    || path === "/dashboard"
+    || path === "/repos"
+    || path === "/channels"
+    || path === "/logout"
+    || path === "/auth/github"
+    || path === "/auth/github/callback"
+    || path.startsWith("/fragments/")
+    || path.startsWith("/api/");
 }
 
 function json(body: unknown, status = 200): Response {

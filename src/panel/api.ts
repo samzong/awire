@@ -101,9 +101,9 @@ export async function fragmentRepos(env: Env, panelPath: string, accountId: stri
   return renderReposFragment({ panelPath, repos, channels });
 }
 
-export async function fragmentRepoNewAsync(env: Env, panelPath: string, accountId: string): Promise<string> {
+export async function fragmentRepoNewAsync(env: Env, panelPath: string, accountId: string, webhookUrl: string): Promise<string> {
   const channels = await listChannels(env.CONFIG_KV, accountId);
-  return renderRepoForm({ panelPath, channels });
+  return renderRepoForm({ panelPath, channels, webhookUrl });
 }
 
 export async function fragmentRepoEdit(env: Env, panelPath: string, fullName: string, accountId: string): Promise<string> {
