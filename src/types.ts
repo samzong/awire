@@ -296,7 +296,6 @@ interface Env {
   CONFIG_KV: KVNamespace;
   DEDUP_KV: KVNamespace;
   PANEL_TOKEN: string;
-  PANEL_PATH: string;
   GITHUB_CLIENT_ID: string;
   GITHUB_CLIENT_SECRET: string;
   SESSION_SECRET: string;

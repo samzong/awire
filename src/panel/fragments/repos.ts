@@ -213,14 +213,27 @@ export function renderRepoForm(opts: {
   panelPath: string;
   channels: ChannelConfig[];
   repo?: RepoConfig;
+  webhookUrl?: string;
 }): string {
-  const { panelPath, channels, repo } = opts;
+  const { panelPath, channels, repo, webhookUrl } = opts;
   const isEdit = Boolean(repo);
   const v: RepoFormValues = repo ?? {};
   const action = isEdit
     ? `${panelPath}/api/repos/${encodeURIComponent(repo!.full_name)}`
     : `${panelPath}/api/repos`;
   const methodLine = isEdit ? `<input type="hidden" name="_method" value="put" />` : "";
+  const webhookHint = !isEdit && webhookUrl ? `
+      <div class="rounded-lg border border-ink-800 bg-ink-850/50 p-3">
+        <div class="text-xs font-medium text-ink-400 mb-1.5 uppercase tracking-wide">GitHub webhook Payload URL</div>
+        <div class="flex items-center gap-2">
+          <code class="flex-1 bg-ink-900 border border-ink-700 rounded-md px-2.5 py-2 text-xs text-ink-200 font-mono break-all">${escapeHtml(webhookUrl)}</code>
+          <button type="button" onclick='window.awireCopy(${JSON.stringify(webhookUrl)}, "URL copied")'
+                  class="shrink-0 bg-ink-800 hover:bg-ink-700 text-ink-200 rounded-md px-2.5 py-2 text-xs font-medium transition-colors">
+            Copy
+          </button>
+        </div>
+      </div>
+    ` : "";
 
   const selected = new Set(v.events ?? []);
 
@@ -273,6 +286,7 @@ export function renderRepoForm(opts: {
           hx-swap="innerHTML"
           class="space-y-4">
       ${methodLine}
+      ${webhookHint}
       ${repoFieldsHtml}
       <div>
         <label class="block text-xs font-medium text-ink-400 mb-1.5 uppercase tracking-wide">Forward to channel</label>

@@ -46,10 +46,8 @@ These are **out of scope** by design and documented in the README:
 
 When you deploy awire, verify these:
 
-- `PANEL_TOKEN` and `PANEL_PATH` are set as Worker secrets (not in
+- `PANEL_TOKEN` and `SESSION_SECRET` are set as Worker secrets (not in
   `wrangler.jsonc`, not in `.dev.vars` in production).
-- `PANEL_PATH` is long and random — run `pnpm gen:secret --path` to
-  generate one.
 - Each GitHub repo has a webhook secret configured in awire's repo
   config (not just the shared `/hook/github` endpoint).
 - The Feishu custom bot has signature verification enabled and the

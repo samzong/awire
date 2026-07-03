@@ -5,11 +5,6 @@
 # Generate one: pnpm gen:secret
 PANEL_TOKEN=replace-with-a-strong-random-token
 
-# Non-guessable path segment that hides the admin panel URL.
-# The panel lives at https://<worker>/<PANEL_PATH>
-# Generate one: pnpm gen:secret --path
-PANEL_PATH=_panel_replace_me
-
 # GitHub OAuth App credentials for panel login.
 GITHUB_CLIENT_ID=replace-with-github-oauth-client-id
 GITHUB_CLIENT_SECRET=replace-with-github-oauth-client-secret

@@ -1,8 +1,7 @@
 /**
  * Dashboard fragment.
  *
- * Shows fleet counts, recent webhook volume, and a copy-pasteable summary of
- * the GitHub webhook endpoint.
+ * Shows fleet counts, recent webhook volume, and the GitHub webhook endpoint.
  */
 
 import type { ChannelConfig, RepoConfig } from "../../types.ts";
@@ -29,8 +28,8 @@ export function renderDashboardFragment(opts: {
 
     <div class="bg-ink-900 border border-ink-800 rounded-xl overflow-hidden">
       <div class="px-5 py-4 border-b border-ink-800">
-        <h2 class="text-sm font-semibold text-ink-100">Webhook endpoint</h2>
-        <p class="text-xs text-ink-400 mt-0.5">Use this endpoint for incoming webhook deliveries.</p>
+        <h2 class="text-sm font-semibold text-ink-100">GitHub webhook endpoint</h2>
+        <p class="text-xs text-ink-400 mt-0.5">Use this as the Payload URL when adding a GitHub repo webhook.</p>
       </div>
       <div class="px-5 py-4">
         <div class="flex items-center gap-2">

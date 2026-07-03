@@ -8,8 +8,8 @@
  * HTMX via CDN for partial swaps. Small inline helpers handle copy, toast, and
  * modal-close interactions.
  *
- * `PANEL_PATH` is interpolated into all fragment URLs so the whole panel
- * sits behind the non-guessable path.
+ * `panelPath` is interpolated into fragment URLs so root-mounted and prefixed
+ * shells share the same render helpers.
  */
 
 import { PANEL_CSS } from "./generated-css.ts";
@@ -26,6 +26,7 @@ export type NavKey = "dashboard" | "repos" | "channels";
 
 export function renderPanelShell(opts: PanelShellOptions): string {
   const { panelPath, initialContent, activeNav } = opts;
+  const loginPath = panelPath || "/";
   return `<!DOCTYPE html>
 <html lang="en">
 <head>
@@ -92,7 +93,7 @@ export function renderPanelShell(opts: PanelShellOptions): string {
     document.body.addEventListener('htmx:afterRequest', (e) => {
       if (e.detail.xhr && e.detail.xhr.status === 401) {
         fetch('${panelPath}/logout', { method: 'POST' }).finally(() => {
-          window.location.href = '${panelPath}?err=1';
+          window.location.href = '${loginPath}?err=1';
         });
         return;
       }
