@@ -50,7 +50,7 @@
 - Auth: required
 - Body: none
 - Flags: none
-- Output: list path `channels`; columns `name`, `id`, `created_at`, `sign_secret`, `updated_at`, `webhook_url`; response media `application/json`
+- Output: list path `channels`; columns `name`, `kind`, `id`, `chat_id`, `created_at`, `updated_at`; response media `application/json`
 
 ### `awirectl channels test`
 
@@ -90,7 +90,7 @@ awirectl ping --channel_id 2b2ed599-697c-4e83-93f4-92f18f5254e9 -o json
 - Body: required; media type `application/json`
 - Flags: none
 - Prerequisites:
-  - Create a delivery channel first: awirectl channels create --set name=... --set webhook_url=...
+  - Create a delivery channel first: use webhook_url for Feishu/Slack or bot_token plus chat_id for Telegram.
 - Example:
 
 ```

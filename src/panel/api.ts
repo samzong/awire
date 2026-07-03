@@ -18,9 +18,9 @@ import {
   putRepo,
 } from "../config.ts";
 import { countRecentDeliveries } from "../dedup.ts";
-import { sendCard } from "../feishu.ts";
+import { deliver } from "../delivery.ts";
 import { renderCardText } from "../render/shared.ts";
-import type { ChannelConfig, Env, RepoConfig } from "../types.ts";
+import type { ChannelConfig, ChannelKind, Env, RepoConfig } from "../types.ts";
 import { renderChannelsFragment, renderChannelForm, renderTestResult, type ChannelUsage } from "./fragments/channels.ts";
 import { normalizeEventKeys, renderReposFragment, renderRepoForm } from "./fragments/repos.ts";
 
@@ -38,6 +38,11 @@ async function parseForm(req: Request): Promise<FormData> {
 function formStr(form: FormData, key: string): string {
   const v = form.get(key);
   return typeof v === "string" ? v.trim() : "";
+}
+
+function formChannelKind(value: string): ChannelKind | null {
+  if (value === "feishu" || value === "slack" || value === "telegram") return value;
+  return null;
 }
 
 /** Read all form values for a key as strings. */
@@ -117,22 +122,27 @@ export async function fragmentRepoEdit(env: Env, panelPath: string, fullName: st
 export async function apiChannelCreate(env: Env, panelPath: string, req: Request): Promise<string> {
   const form = await parseForm(req);
   const name = formStr(form, "name");
-  const webhook_url = formStr(form, "webhook_url");
-  const sign_secret = formStr(form, "sign_secret") || undefined;
-  if (!name || !webhook_url) return errorCard("Name and webhook URL are required");
-  if (!/^https:\/\//i.test(webhook_url)) return errorCard("Webhook URL must be HTTPS");
+  const kind = formChannelKind(formStr(form, "kind") || "feishu");
+  if (!kind) return errorCard("Channel type is invalid");
+  if (!name) return errorCard("Name is required");
 
-  const ch: ChannelConfig = {
-    id: id(),
-    name,
-    webhook_url,
-    sign_secret,
-    created_at: now(),
-    updated_at: now(),
-  };
+  const base = { id: id(), name, created_at: now(), updated_at: now() };
+  let ch: ChannelConfig;
+  if (kind === "telegram") {
+    const bot_token = formStr(form, "bot_token");
+    const chat_id = formStr(form, "chat_id");
+    if (!bot_token || !chat_id) return errorCard("Telegram bot token and chat ID are required");
+    ch = { ...base, kind, bot_token, chat_id };
+  } else {
+    const webhook_url = formStr(form, "webhook_url");
+    if (!webhook_url) return errorCard("Webhook URL is required");
+    if (!/^https:\/\//i.test(webhook_url)) return errorCard("Webhook URL must be HTTPS");
+    ch = kind === "feishu"
+      ? { ...base, kind, webhook_url, sign_secret: formStr(form, "sign_secret") || undefined }
+      : { ...base, kind, webhook_url };
+  }
+
   await putChannel(env.CONFIG_KV, ch);
-
-  // Return the refreshed channels table body for HTMX swap.
   return await channelsTableBody(env, panelPath);
 }
 
@@ -142,17 +152,27 @@ export async function apiChannelUpdate(env: Env, panelPath: string, req: Request
   if (!existing) return notFoundCard("Channel not found");
 
   const name = formStr(form, "name");
-  const webhook_url = formStr(form, "webhook_url");
-  // Empty string on edit = clear; absent field = keep.
-  const sign_secretRaw = form.get("sign_secret");
-  const sign_secret = sign_secretRaw === null
-    ? existing.sign_secret
-    : (typeof sign_secretRaw === "string" ? sign_secretRaw.trim() || undefined : undefined);
+  const kind = formChannelKind(formStr(form, "kind") || existing.kind);
+  if (!kind) return errorCard("Channel type is invalid");
+  if (!name) return errorCard("Name is required");
 
-  if (!name || !webhook_url) return errorCard("Name and webhook URL are required");
-  if (!/^https:\/\//i.test(webhook_url)) return errorCard("Webhook URL must be HTTPS");
+  const base = { id: existing.id, name, kind, created_at: existing.created_at, updated_at: now() };
+  let updated: ChannelConfig;
+  if (kind === "telegram") {
+    const botTokenValue = formStr(form, "bot_token");
+    const bot_token = botTokenValue || (existing.kind === "telegram" ? existing.bot_token : "");
+    const chat_id = formStr(form, "chat_id") || (existing.kind === "telegram" ? existing.chat_id : "");
+    if (!bot_token || !chat_id) return errorCard("Telegram bot token and chat ID are required");
+    updated = { ...base, kind, bot_token, chat_id };
+  } else {
+    const webhook_url = formStr(form, "webhook_url") || (existing.kind !== "telegram" ? existing.webhook_url : "");
+    if (!webhook_url) return errorCard("Webhook URL is required");
+    if (!/^https:\/\//i.test(webhook_url)) return errorCard("Webhook URL must be HTTPS");
+    updated = kind === "feishu"
+      ? { ...base, kind, webhook_url, sign_secret: formStr(form, "sign_secret") || undefined }
+      : { ...base, kind, webhook_url };
+  }
 
-  const updated: ChannelConfig = { ...existing, name, webhook_url, sign_secret, updated_at: now() };
   await putChannel(env.CONFIG_KV, updated);
   return await channelsTableBody(env, panelPath);
 }
@@ -183,15 +203,128 @@ export async function apiChannelTest(env: Env, panelPath: string, chId: string):
   const ch = await getChannel(env.CONFIG_KV, chId);
   if (!ch) return notFoundCard("Channel not found");
 
-  const result = await sendCard(
-    ch.webhook_url,
+  const result = await deliver(
+    ch,
     renderCardText(
       "🏓 awire test",
-      `**Channel:** ${ch.name}\n**Time:** ${now()}\n\nIf you see this, your Feishu webhook${ch.sign_secret ? " and signing secret" : ""} are configured correctly.`,
+      `**Channel:** ${ch.name}\n**Type:** ${ch.kind}\n**Time:** ${now()}\n\nIf you see this, the delivery target is configured correctly.`,
     ),
-    ch.sign_secret,
   );
   return renderTestResult({ ok: result.ok, message: result.message, statusCode: result.statusCode });
+}
+
+export async function apiTelegramChats(req: Request): Promise<string> {
+  const form = await parseForm(req);
+  const botToken = formStr(form, "bot_token");
+  if (!botToken) return telegramChatPicker([], "Enter a Telegram bot token first.");
+
+  try {
+    const resp = await fetch(`https://api.telegram.org/bot${botToken}/getUpdates`);
+    const payload = await resp.json().catch(() => null);
+    const data = isRecord(payload) ? payload : null;
+    if (!resp.ok || data?.ok !== true) {
+      return telegramChatPicker([], telegramErrorMessage(payload, resp.statusText));
+    }
+    const chats = extractTelegramChats(data.result);
+    return telegramChatPicker(chats, chats.length === 0 ? "No chats found. Send a message to the bot, then try again." : undefined);
+  } catch {
+    return telegramChatPicker([], "Could not reach Telegram. Try again.");
+  }
+}
+
+export interface TelegramChatOption {
+  id: string;
+  label: string;
+  type: string;
+  username?: string;
+}
+
+export function extractTelegramChats(updates: unknown): TelegramChatOption[] {
+  if (!Array.isArray(updates)) return [];
+  const seen = new Map<string, TelegramChatOption>();
+  for (const update of updates) {
+    for (const chat of telegramChatsFromUpdate(update)) {
+      const id = chatId(chat);
+      if (!id || seen.has(id)) continue;
+      seen.set(id, {
+        id,
+        label: chatLabel(chat, id),
+        type: chatType(chat),
+        username: chatUsername(chat),
+      });
+    }
+  }
+  return [...seen.values()].sort((a, b) => a.label.localeCompare(b.label));
+}
+
+function telegramChatsFromUpdate(update: unknown): unknown[] {
+  return [
+    nestedValue(update, "message", "chat"),
+    nestedValue(update, "edited_message", "chat"),
+    nestedValue(update, "channel_post", "chat"),
+    nestedValue(update, "edited_channel_post", "chat"),
+    nestedValue(update, "my_chat_member", "chat"),
+    nestedValue(update, "chat_member", "chat"),
+    nestedValue(update, "callback_query", "message", "chat"),
+  ].filter((chat) => chat !== undefined);
+}
+
+function chatId(chat: unknown): string | undefined {
+  const id = isRecord(chat) ? chat.id : undefined;
+  return typeof id === "number" || typeof id === "string" ? String(id) : undefined;
+}
+
+function chatType(chat: unknown): string {
+  const type = isRecord(chat) ? chat.type : undefined;
+  return typeof type === "string" ? type : "chat";
+}
+
+function chatUsername(chat: unknown): string | undefined {
+  const username = isRecord(chat) ? chat.username : undefined;
+  return typeof username === "string" && username ? username : undefined;
+}
+
+function chatLabel(chat: unknown, fallback: string): string {
+  const value = isRecord(chat) ? chat : {};
+  const title = typeof value.title === "string" ? value.title : "";
+  const username = typeof value.username === "string" ? `@${value.username}` : "";
+  const first = typeof value.first_name === "string" ? value.first_name : "";
+  const last = typeof value.last_name === "string" ? value.last_name : "";
+  return title || username || [first, last].filter(Boolean).join(" ") || fallback;
+}
+
+function telegramErrorMessage(payload: unknown, fallback: string): string {
+  const description = isRecord(payload) ? payload.description : undefined;
+  return typeof description === "string" && description ? description : fallback;
+}
+
+function nestedValue(value: unknown, ...keys: string[]): unknown {
+  let current = value;
+  for (const key of keys) {
+    if (!isRecord(current)) return undefined;
+    current = current[key];
+  }
+  return current;
+}
+
+function isRecord(value: unknown): value is Record<string, unknown> {
+  return typeof value === "object" && value !== null;
+}
+
+function telegramChatPicker(chats: TelegramChatOption[], message?: string): string {
+  const options = chats.map((chat) => {
+    const username = chat.username ? ` @${chat.username}` : "";
+    return `<option value="${escapeHtml(chat.id)}">${escapeHtml(`${chat.label} (${chat.type}) ${chat.id}${username}`)}</option>`;
+  }).join("");
+  return `
+    ${message ? `<div class="text-xs text-ink-400 bg-ink-850 rounded-lg px-3 py-2">${escapeHtml(message)}</div>` : ""}
+    ${chats.length > 0 ? `
+      <select onchange="this.closest('[data-channel-kind]').querySelector('input[name=chat_id]').value=this.value"
+              class="mt-2 w-full bg-ink-850 border border-ink-700 rounded-lg px-3.5 py-2 text-sm text-ink-100 focus:outline-none focus:ring-2 focus:ring-accent-500 focus:border-transparent">
+        <option value="">Select a discovered chat...</option>
+        ${options}
+      </select>` : ""}
+  `;
 }
 
 export async function apiRepoCreate(env: Env, panelPath: string, req: Request): Promise<string> {

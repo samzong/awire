@@ -4,7 +4,7 @@ const URL_ = process.env.URL ?? "http://localhost:8787";
 const TOKEN = process.env.PANEL_TOKEN ?? process.env.TOKEN;
 
 if (!TOKEN) {
-  console.error("Set PANEL_TOKEN=<panel token>");
+  console.error("Set PANEL_TOKEN=<panel token> in .dev.vars or env");
   process.exit(1);
 }
 
@@ -20,6 +20,9 @@ try {
     webhook_url: "https://example.com/awire-test",
   });
   channelId = createdChannel.channel.id;
+  if (createdChannel.channel.kind !== "feishu") {
+    throw new Error("channel kind did not default to feishu");
+  }
 
   await request("GET", `/api/v1/channels/${encodeURIComponent(channelId)}`);
   await request("PUT", `/api/v1/channels/${encodeURIComponent(channelId)}`, {

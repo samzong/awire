@@ -35,7 +35,7 @@ var Specs = []runtime.CommandSpec{
 		RequestBody: &runtime.RequestBody{
 			Required:  true,
 			MediaType: "application/json",
-			Schema:    &runtime.SchemaSpec{Type: "object", Properties: map[string]*runtime.SchemaSpec{"name": &runtime.SchemaSpec{Type: "string"}, "sign_secret": &runtime.SchemaSpec{Type: "string"}, "webhook_url": &runtime.SchemaSpec{Type: "string"}}, Required: []string{"name", "webhook_url"}},
+			Schema:    &runtime.SchemaSpec{Type: "object", Properties: map[string]*runtime.SchemaSpec{"bot_token": &runtime.SchemaSpec{Type: "string"}, "chat_id": &runtime.SchemaSpec{Type: "string"}, "kind": &runtime.SchemaSpec{Type: "string"}, "name": &runtime.SchemaSpec{Type: "string"}, "sign_secret": &runtime.SchemaSpec{Type: "string"}, "webhook_url": &runtime.SchemaSpec{Type: "string"}}, Required: []string{"name"}},
 		},
 	},
 	{
@@ -75,7 +75,7 @@ var Specs = []runtime.CommandSpec{
 		OperationID: "listChannels",
 		Method:      "GET",
 		PathTpl:     "/api/v1/channels",
-		Output:      runtime.OutputHints{ListPath: "channels", DefaultColumns: []string{"name", "id", "created_at", "sign_secret", "updated_at", "webhook_url"}, ResponseMediaType: "application/json"},
+		Output:      runtime.OutputHints{ListPath: "channels", DefaultColumns: []string{"name", "kind", "id", "chat_id", "created_at", "updated_at"}, ResponseMediaType: "application/json"},
 	},
 	{
 		Group: "Channels",
@@ -106,7 +106,7 @@ var Specs = []runtime.CommandSpec{
 		RequestBody: &runtime.RequestBody{
 			Required:  true,
 			MediaType: "application/json",
-			Schema:    &runtime.SchemaSpec{Type: "object", Properties: map[string]*runtime.SchemaSpec{"name": &runtime.SchemaSpec{Type: "string"}, "sign_secret": &runtime.SchemaSpec{Type: "string"}, "webhook_url": &runtime.SchemaSpec{Type: "string"}}},
+			Schema:    &runtime.SchemaSpec{Type: "object", Properties: map[string]*runtime.SchemaSpec{"bot_token": &runtime.SchemaSpec{Type: "string"}, "chat_id": &runtime.SchemaSpec{Type: "string"}, "kind": &runtime.SchemaSpec{Type: "string"}, "name": &runtime.SchemaSpec{Type: "string"}, "sign_secret": &runtime.SchemaSpec{Type: "string"}, "webhook_url": &runtime.SchemaSpec{Type: "string"}}},
 		},
 		Output: runtime.OutputHints{ResponseMediaType: "application/json"},
 	},
@@ -115,7 +115,7 @@ var Specs = []runtime.CommandSpec{
 		Use:           "create",
 		Short:         "Create a repository route.",
 		Example:       "awirectl repos create \\\n  --set full_name=octocat/Hello-World \\\n  --set channel_id=2b2ed599-697c-4e83-93f4-92f18f5254e9 \\\n  --set 'events=[\"pull_request.opened\"]'\n",
-		Prerequisites: []string{"Create a delivery channel first: awirectl channels create --set name=... --set webhook_url=..."},
+		Prerequisites: []string{"Create a delivery channel first: use webhook_url for Feishu/Slack or bot_token plus chat_id for Telegram."},
 		OperationID:   "createRepo",
 		Method:        "POST",
 		PathTpl:       "/api/v1/repos",

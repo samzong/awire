@@ -28,6 +28,7 @@ const updated_at = created_at;
 const wildcardChannel: ChannelConfig = {
   id: "wildcard",
   name: "Wildcard",
+  kind: "feishu",
   webhook_url: "https://example.com/wildcard",
   created_at,
   updated_at,
@@ -35,6 +36,7 @@ const wildcardChannel: ChannelConfig = {
 const exactChannel: ChannelConfig = {
   id: "exact",
   name: "Exact",
+  kind: "feishu",
   webhook_url: "https://example.com/exact",
   created_at,
   updated_at,

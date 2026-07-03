@@ -20,7 +20,9 @@
     "feishu",
     "lark",
     "event-routing",
-    "htmx"
+    "htmx",
+    "slack",
+    "telegram"
   ],
   "type": "module",
   "main": "src/index.ts",
@@ -38,8 +40,11 @@
     "check:openapi": "tsx scripts/gen-openapi.ts --check",
     "gen:secret": "node scripts/gen-secret.mjs",
     "test:config": "tsx scripts/test-config.ts",
-    "test:api": "node scripts/test-json-api.mjs",
-    "test:webhook": "node scripts/test-webhook.mjs"
+    "test:api": "node --env-file-if-exists=.dev.vars scripts/test-json-api.mjs",
+    "test:delivery": "tsx scripts/test-delivery.ts",
+    "test:slack": "node --env-file-if-exists=.dev.vars --import tsx scripts/test-slack-cards.ts",
+    "test:telegram": "node --env-file-if-exists=.dev.vars --import tsx scripts/test-telegram-cards.ts",
+    "test:webhook": "node --env-file-if-exists=.dev.vars scripts/test-webhook.mjs"
   },
   "devDependencies": {
     "@types/node": "^26.0.0",
