@@ -37,6 +37,7 @@
     "gen:openapi": "tsx scripts/gen-openapi.ts",
     "check:openapi": "tsx scripts/gen-openapi.ts --check",
     "gen:secret": "node scripts/gen-secret.mjs",
+    "test:config": "tsx scripts/test-config.ts",
     "test:api": "node scripts/test-json-api.mjs",
     "test:webhook": "node scripts/test-webhook.mjs"
   },
