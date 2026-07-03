@@ -46,9 +46,11 @@ jobs:
       - name: Regenerate awirectl from pinned lathe
         run: |
           cd cli
-          go run github.com/lathe-cli/lathe/cmd/lathe@v0.4.3-0.20260626165232-7c63d8f7bff8 bootstrap \
+          lathe_version="$(go list -m -f '{{.Version}}' github.com/lathe-cli/lathe)"
+          go run "github.com/lathe-cli/lathe/cmd/lathe@${lathe_version}" bootstrap \
             -manifest cmd/awirectl/cli.yaml \
             -overlay internal/overlay
+          gofmt -w internal/generated
 
       - name: Assert generated code and skills are committed
         run: |

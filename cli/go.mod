@@ -3,9 +3,9 @@ module github.com/samzong/awire/cli
 go 1.25.7
 
 require (
-	github.com/lathe-cli/lathe v0.4.3-0.20260626165232-7c63d8f7bff8
-	github.com/samzong/kitup/go v0.1.1
-	github.com/samzong/kitup/go-cobra v0.1.1
+	github.com/lathe-cli/kitup/go v0.1.3
+	github.com/lathe-cli/kitup/go-cobra v0.1.3
+	github.com/lathe-cli/lathe v0.4.5-0.20260703060001-a9e011dfbc11
 	github.com/spf13/cobra v1.10.2
 )
 
