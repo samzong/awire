@@ -7,6 +7,26 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.2.0] - 2026-07-03
+
+### Added
+- Slack and Telegram delivery channels alongside Feishu/Lark.
+- GitHub OAuth panel login with per-account workspaces.
+- Account-wide repository routes with `owner/*`.
+- Root-mounted hosted panel for the public demo at `https://awire.samzong.workers.dev`.
+- Cloudflare deployment runbook with one-click deploy notes, manual Wrangler
+  deployment, OAuth setup, KV setup, and troubleshooting.
+- Bundled `awirectl skill install` support.
+- Webhook delivery diagnostics for Cloudflare Workers logs.
+
+### Changed
+- Moved the public health endpoint to `/health`.
+- Reworked README around the hosted demo, supported sources/channels, current
+  architecture, and Cloudflare self-hosting entry point.
+- Updated panel copy to show the GitHub webhook Payload URL in repo setup.
+- Stamped generated CLI builds with version metadata.
+- Refined generated CLI overlay docs and safe flag input guidance.
+
 ## [0.1.0] - 2026-06-25
 
 ### Added
@@ -48,5 +68,6 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   Worker/CSS artifacts.
 - `dev` script now builds CSS before starting wrangler, matching `deploy`.
 
-[Unreleased]: https://github.com/samzong/awire/compare/v0.1.0...HEAD
+[Unreleased]: https://github.com/samzong/awire/compare/v0.2.0...HEAD
+[0.2.0]: https://github.com/samzong/awire/compare/v0.1.0...v0.2.0
 [0.1.0]: https://github.com/samzong/awire/releases/tag/v0.1.0

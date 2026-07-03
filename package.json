@@ -1,6 +1,6 @@
 {
   "name": "awire",
-  "version": "0.1.0",
+  "version": "0.2.0",
   "private": true,
   "description": "A Cloudflare Worker control plane for routing source events to delivery channels as interactive cards.",
   "license": "MIT",
