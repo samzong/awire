@@ -53,6 +53,9 @@ jobs:
       - name: Typecheck
         run: pnpm typecheck
 
+      - name: Verify webhook filtering
+        run: pnpm test:webhook-filtering
+
       - name: Verify generated OpenAPI is current
         run: pnpm check:openapi
 

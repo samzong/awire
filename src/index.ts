@@ -142,7 +142,7 @@ async function handleWebhook(req: Request, env: Env, accountId: string | undefin
     return json({ ok: true, ignored: "no route" });
   }
 
-  if (!shouldForward(route.events, event, action)) {
+  if (!shouldForward(route.events, event, action) || payload.pull_request?.draft === true) {
     logWebhook("info", "event_filtered", { ...logFields, channel: route.channel.id });
     return json({ ok: true, filtered: true });
   }
