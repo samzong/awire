@@ -37,6 +37,7 @@ POST /hook/github
   ├─ 5. filter            shouldForward(events, event, action)?
   │                          "*" | "<event>" | "<event>.<action>"
   │                          miss → 200 { filtered: true }
+  │                          pull_request.draft === true → 200 { filtered: true }
   │
   ├─ 6. render            renderEvent(event, action, payload) → FeishuCard | null
   │                          specialized template OR generic fallback
@@ -51,6 +52,11 @@ POST /hook/github
 
 Steps 3–4 are the security and reliability core. Step 6 is where most
 contributions land (new event renderers).
+
+Draft suppression uses only `payload.pull_request.draft`, before rendering or
+delivery to any channel. `ready_for_review` follows the existing event allow-list
+when `draft` is false. Events without that field, including `issue_comment`,
+keep their existing behavior; no GitHub lookup or additional state is needed.
 
 ## Why these decisions
 
