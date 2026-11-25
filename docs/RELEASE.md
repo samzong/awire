@@ -29,22 +29,59 @@ pnpm test:api
 
 ## Cut a release
 
-1. Update `package.json` version.
-2. Update `CHANGELOG.md`.
-3. Commit the release change.
-4. Create an annotated tag matching the package version:
+`package.json` is the version source. Tags use `vX.Y.Z` or `vX.Y.Z-(alpha|beta|rc).N`, with no leading zeroes.
+Start each prerelease stage at `.1`. The gate also accepts `.0`.
+awire uses the L2 release tier because the Worker API and generated CLI share a public contract.
+Use beta and release candidates before a stable release. During `0.y.z`, increment MINOR for incompatible changes.
+
+Install git-cliff 2.14.1. Run these commands from the repository root with all tags fetched.
+Use a new version for every publication.
+
+1. Update `package.json` to the release version.
+2. Generate the release section:
 
    ```sh
-   git tag -s v0.2.0 -m "v0.2.0"
+   git fetch origin --tags
+   RELEASE_TAG="v$(node -p 'require("./package.json").version')"
+   RELEASE_TAG="$RELEASE_TAG" node scripts/verify-release.mjs --generate
    ```
 
-5. Push the commit and tag.
-6. Verify GitHub CI passes.
-7. Deploy with runtime vars preserved:
+3. Insert that output below `## [Unreleased]` in `CHANGELOG.md`, above the previous release.
+4. Preserve the generated text and the `## [X.Y.Z] - YYYY-MM-DD` heading.
+5. Update the comparison links at the end of `CHANGELOG.md`.
+6. Run the local gate and repository tests.
+7. Commit the version and changelog with `chore(release): vX.Y.Z`, then merge the release preparation PR.
+8. After separate owner authorization, create a signed tag on the merged release commit:
 
    ```sh
-   pnpm deploy
+   RELEASE_TAG="v$(node -p 'require("./package.json").version')"
+   git tag -s "$RELEASE_TAG" -m "$RELEASE_TAG"
+   RELEASE_TAG="$RELEASE_TAG" node scripts/verify-release.mjs
    ```
+
+9. If the gate passes, push that specific tag:
+
+   ```sh
+   git push origin "$RELEASE_TAG"
+   ```
+
+Pushing a `v*` tag starts `.github/workflows/release.yml`.
+Its first job rejects invalid tags, manifest mismatches, missing release sections, and differences from git-cliff.
+The gate compares only the current release section. Historical release notes remain unchanged.
+Each section includes changes since the previous stable tag, including changes in earlier candidates.
+Promotion to stable uses the same notes with the new version heading.
+The recorded release date controls rendering, so a later workflow run does not change the expected text.
+The gate rejects empty release notes before any build or publication job starts.
+
+After the gate passes, the workflow runs tests, typecheck, OpenAPI validation, and a dry-run Worker build.
+It creates a GitHub Release from the accepted changelog section.
+Prereleases use `--prerelease --latest=false`. Stable releases use `--latest`.
+The private package is not published to npm. The workflow does not deploy the Worker or publish CLI binaries.
+
+Read the workflow result and the GitHub Release after the tag push.
+If validation fails, correct the release preparation before publishing a new version.
+Never move, rename, delete, or reuse a published tag.
+After separate deployment authorization, run `pnpm deploy` with runtime variables preserved.
 
 ## Lathe source
 
