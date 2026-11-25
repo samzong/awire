@@ -7,6 +7,14 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.2.1] - 2026-11-25
+
+### Changed
+- add technical roadmap
+
+### Fixed
+- **webhook:** suppress notifications for draft pull requests (#14)
+
 ## [0.2.0] - 2026-07-03
 
 ### Added
@@ -68,6 +76,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   Worker/CSS artifacts.
 - `dev` script now builds CSS before starting wrangler, matching `deploy`.
 
-[Unreleased]: https://github.com/samzong/awire/compare/v0.2.0...HEAD
+[Unreleased]: https://github.com/samzong/awire/compare/v0.2.1...HEAD
+[0.2.1]: https://github.com/samzong/awire/compare/v0.2.0...v0.2.1
 [0.2.0]: https://github.com/samzong/awire/compare/v0.1.0...v0.2.0
 [0.1.0]: https://github.com/samzong/awire/releases/tag/v0.1.0
